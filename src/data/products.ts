@@ -1,0 +1,82 @@
+import { Product } from '@/types/product';
+
+import sportsBraImage from '@/assets/product-sports-bra.jpg';
+import leggingsImage from '@/assets/product-leggings.jpg';
+import tankTopImage from '@/assets/product-tank-top.jpg';
+import shortsImage from '@/assets/product-shorts.jpg';
+
+export const products: Product[] = [
+  {
+    id: '1',
+    name: 'Bloom Sports Bra',
+    description: 'Ultra-soft, supportive sports bra with moisture-wicking technology. Perfect for medium-impact workouts and daily wear.',
+    price: 68,
+    originalPrice: 85,
+    image: sportsBraImage,
+    category: 'Sports Bras',
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    colors: ['Rose Pink', 'Sage Green', 'Pearl White', 'Charcoal'],
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: '2',
+    name: 'Flow High-Waist Leggings',
+    description: 'Buttery-soft high-waisted leggings with four-way stretch and a sculpting fit. Features a hidden pocket for essentials.',
+    price: 98,
+    originalPrice: 115,
+    image: leggingsImage,
+    category: 'Leggings',
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    colors: ['Rose Pink', 'Black', 'Navy', 'Nude'],
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: '3',
+    name: 'Soul Cropped Tank',
+    description: 'Relaxed-fit cropped tank with a flattering curved hem. Made from breathable bamboo blend fabric.',
+    price: 52,
+    image: tankTopImage,
+    category: 'Tops',
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    colors: ['Rose Pink', 'White', 'Lavender', 'Mint'],
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: '4',
+    name: 'Active Shorts',
+    description: '5" inseam shorts with a comfortable high waistband and side pockets. Perfect for running and yoga.',
+    price: 58,
+    image: shortsImage,
+    category: 'Shorts',
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    colors: ['Rose Pink', 'Black', 'Grey', 'Navy'],
+    inStock: true,
+  },
+  {
+    id: '5',
+    name: 'Zen Yoga Set',
+    description: 'Complete matching set with sports bra and high-waist leggings. Sustainable fabric with moisture-wicking properties.',
+    price: 148,
+    originalPrice: 185,
+    image: sportsBraImage,
+    category: 'Sets',
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    colors: ['Rose Pink', 'Sage Green', 'Lavender'],
+    inStock: true,
+    featured: true,
+  },
+  {
+    id: '6',
+    name: 'Mindful Mesh Tank',
+    description: 'Lightweight mesh tank with built-in bra support. Breathable and perfect for hot yoga sessions.',
+    price: 64,
+    image: tankTopImage,
+    category: 'Tops',
+    sizes: ['XS', 'S', 'M', 'L', 'XL'],
+    colors: ['Rose Pink', 'White', 'Black'],
+    inStock: true,
+  },
+];
