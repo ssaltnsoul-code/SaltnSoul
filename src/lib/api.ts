@@ -164,10 +164,12 @@ export const createProduct = async (productData: Omit<Product, 'id'>): Promise<P
       },
     };
 
-    const response = await makeAdminAPIRequest('products.json', {
+    const res = await fetch('/.netlify/functions/shopify-products', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(shopifyProductData),
     });
+    const response = await res.json();
 
     const newProduct = transformShopifyProduct(response.product);
     products.push(newProduct);
@@ -193,10 +195,12 @@ export const updateProduct = async (id: string, updates: Partial<Product>): Prom
       },
     };
 
-    const response = await makeAdminAPIRequest(`products/${shopifyId}.json`, {
+    const res = await fetch('/.netlify/functions/shopify-products', {
       method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updateData),
     });
+    const response = await res.json();
 
     const updatedProduct = transformShopifyProduct(response.product);
     
@@ -218,7 +222,7 @@ export const deleteProduct = async (id: string): Promise<void> => {
   try {
     const shopifyId = id.startsWith('gid://') ? id.split('/').pop() : id;
     
-    await makeAdminAPIRequest(`products/${shopifyId}.json`, {
+    await fetch(`/.netlify/functions/shopify-products?id=${shopifyId}`, {
       method: 'DELETE',
     });
 
@@ -246,34 +250,31 @@ export const getProduct = async (handleOrId: string): Promise<Product | null> =>
   }
 };
 
-// Get Shopify collections with products
+// Get Shopify collections with products (via Netlify functions)
 export const getShopifyCollections = async () => {
   try {
-    console.log('Fetching collections from Shopify...');
-    
-    // Get collections via Admin API
-    const collectionsResponse = await makeAdminAPIRequest('collections.json?limit=250');
+    console.log('Fetching collections from Netlify function...');
+
+    const colRes = await fetch('/.netlify/functions/shopify-collections');
+    const collectionsResponse = await colRes.json();
     const shopifyCollections = collectionsResponse.collections;
-    
+
     if (!shopifyCollections || shopifyCollections.length === 0) {
       console.warn('No collections found in Shopify');
       return [];
     }
-    
-    // Transform collections and get their products
+
     const collections = await Promise.all(
       shopifyCollections.map(async (collection: any) => {
         try {
-          // Get products for this collection
-          const productsResponse = await makeAdminAPIRequest(
-            `collections/${collection.id}/products.json?limit=250`
-          );
-          
+          const prodRes = await fetch(`/.netlify/functions/shopify-collection-products?id=${collection.id}`);
+          const productsResponse = await prodRes.json();
+
           const collectionProducts = productsResponse.products || [];
           const transformedProducts = collectionProducts
             .map(transformShopifyProduct)
             .filter((p: Product | null) => p !== null);
-          
+
           return {
             id: collection.id.toString(),
             handle: collection.handle,
@@ -303,7 +304,7 @@ export const getShopifyCollections = async () => {
         }
       })
     );
-    
+
     console.log('✅ Collections loaded successfully:', collections.length, 'collections');
     return collections;
   } catch (error) {
