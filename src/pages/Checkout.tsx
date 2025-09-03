@@ -6,32 +6,16 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCart } from '@/hooks/useCart';
-<<<<<<< HEAD
 import { ArrowLeft, ExternalLink, Truck, Shield } from 'lucide-react';
 import { initializeCart, addToCart, getCart } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
-=======
-import { ArrowLeft, CreditCard, Truck, Shield } from 'lucide-react';
-import { createShopifyCheckout } from '@/lib/api';
-import { useToast } from '@/hooks/use-toast';
-import { ShopifyEmbeddedCheckout } from '@/components/ShopifyEmbeddedCheckout';
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { items, total, itemCount } = useCart();
   const { toast } = useToast();
-<<<<<<< HEAD
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-=======
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [checkoutData, setCheckoutData] = useState<{
-    checkoutId: string;
-    checkoutUrl: string;
-  } | null>(null);
-  const [showEmbeddedCheckout, setShowEmbeddedCheckout] = useState(false);
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
   const [formData, setFormData] = useState({
     email: '',
     firstName: '',
@@ -61,7 +45,6 @@ export default function Checkout() {
   const tax = total * 0.08; // 8% tax rate
   const finalTotal = total + shippingCost + tax;
 
-<<<<<<< HEAD
   // Create Shopify checkout on component mount
   useEffect(() => {
     const createCheckout = async () => {
@@ -105,66 +88,6 @@ export default function Checkout() {
     }
   };
 
-=======
-  const handleProceedToCheckout = async () => {
-    // Validate required fields
-    const requiredFields = ['email', 'firstName', 'lastName', 'address', 'city', 'state', 'zipCode'];
-    const missingFields = requiredFields.filter(field => !formData[field]);
-    
-    if (missingFields.length > 0) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please fill in all required shipping information.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-
-    try {
-      const result = await createShopifyCheckout({
-        items,
-        customerInfo: {
-          name: `${formData.firstName} ${formData.lastName}`,
-          email: formData.email,
-          address: formData.address,
-          city: formData.city,
-          state: formData.state,
-          zipCode: formData.zipCode,
-        },
-      });
-
-      setCheckoutData(result);
-      setShowEmbeddedCheckout(true);
-    } catch (error) {
-      console.error('Error creating checkout:', error);
-      toast({
-        title: 'Checkout Error',
-        description: 'Unable to proceed to checkout. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleCheckoutComplete = () => {
-    // Clear cart and redirect to confirmation
-    navigate('/order-confirmation');
-  };
-
-  const handleCheckoutError = (error: Error) => {
-    console.error('Embedded checkout error:', error);
-    toast({
-      title: 'Checkout Error',
-      description: 'There was an issue with the checkout. Please try again.',
-      variant: 'destructive',
-    });
-    setShowEmbeddedCheckout(false);
-  };
-
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
   if (items.length === 0) {
     return (
       <div className="min-h-screen bg-background pt-20 px-6">
@@ -174,36 +97,6 @@ export default function Checkout() {
           <Button onClick={() => navigate('/')} className="btn-hero">
             Continue Shopping
           </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // Show embedded checkout if we have checkout data
-  if (showEmbeddedCheckout && checkoutData) {
-    return (
-      <div className="min-h-screen bg-background pt-20">
-        <div className="max-w-4xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-4 mb-8">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setShowEmbeddedCheckout(false)}
-              className="rounded-full"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold">Complete Your Order</h1>
-              <p className="text-muted-foreground">Secure checkout powered by Shopify</p>
-            </div>
-          </div>
-
-          <ShopifyEmbeddedCheckout
-            checkoutId={checkoutData.checkoutId}
-            onComplete={handleCheckoutComplete}
-            onError={handleCheckoutError}
-          />
         </div>
       </div>
     );
@@ -380,7 +273,6 @@ export default function Checkout() {
               </CardContent>
             </Card>
 
-<<<<<<< HEAD
             {/* Shopify Checkout */}
             <Card>
               <CardHeader>
@@ -414,49 +306,6 @@ export default function Checkout() {
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Shield className="h-4 w-4" />
                   <span>Secure checkout powered by Shopify</span>
-=======
-            {/* Proceed to Embedded Checkout */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Ready to Complete Your Order?</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <p className="text-muted-foreground">
-                    Click below to proceed to our secure embedded checkout to complete your payment.
-                  </p>
-                  
-                  <div className="bg-accent/30 p-4 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm font-medium mb-2">
-                      <Shield className="h-4 w-4" />
-                      Secure Embedded Checkout
-                    </div>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Multiple payment options (Credit cards, PayPal, Apple Pay, etc.)</li>
-                      <li>• Industry-leading security and encryption</li>
-                      <li>• Express checkout options available</li>
-                      <li>• Seamless checkout experience without leaving our site</li>
-                    </ul>
-                  </div>
-
-                  <Button
-                    onClick={handleProceedToCheckout}
-                    disabled={isProcessing}
-                    className="w-full btn-hero h-12 text-lg"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                        Creating checkout...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="mr-2 h-5 w-5" />
-                        Continue to Payment
-                      </>
-                    )}
-                  </Button>
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
                 </div>
               </CardContent>
             </Card>

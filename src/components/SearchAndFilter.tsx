@@ -22,20 +22,23 @@ export function SearchAndFilter({ products, onFilterChange }: SearchAndFilterPro
   const [sortBy, setSortBy] = useState<'name' | 'price-low' | 'price-high' | 'featured'>('featured');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Get unique categories
-  const categories = Array.from(new Set(products.map(p => p.category)));
-  const maxPrice = Math.max(...products.map(p => p.price));
+  // Get unique categories - safely handle empty array
+  const categories = products.length > 0 ? Array.from(new Set(products.map(p => p.category).filter(Boolean))) : [];
+  
+  // Get max price - safely handle empty array and NaN values
+  const validPrices = products.map(p => p.price).filter(price => !isNaN(price) && price > 0);
+  const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 200;
 
   // Filter and sort products
   useEffect(() => {
     let filtered = [...products];
 
-    // Search filter
+    // Search filter - safely handle null/undefined values
     if (searchTerm) {
       filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.category.toLowerCase().includes(searchTerm.toLowerCase())
+        (product.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.description || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.category || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -46,21 +49,30 @@ export function SearchAndFilter({ products, onFilterChange }: SearchAndFilterPro
       );
     }
 
-    // Price range filter
-    filtered = filtered.filter(product =>
-      product.price >= priceRange[0] && product.price <= priceRange[1]
-    );
+    // Price range filter - safely handle NaN prices
+    filtered = filtered.filter(product => {
+      const price = product.price;
+      return !isNaN(price) && price >= priceRange[0] && price <= priceRange[1];
+    });
 
-    // Sort
+    // Sort - safely handle null/undefined values
     switch (sortBy) {
       case 'name':
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
+        filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
         break;
       case 'price-low':
-        filtered.sort((a, b) => a.price - b.price);
+        filtered.sort((a, b) => {
+          const priceA = isNaN(a.price) ? 0 : a.price;
+          const priceB = isNaN(b.price) ? 0 : b.price;
+          return priceA - priceB;
+        });
         break;
       case 'price-high':
-        filtered.sort((a, b) => b.price - a.price);
+        filtered.sort((a, b) => {
+          const priceA = isNaN(a.price) ? 0 : a.price;
+          const priceB = isNaN(b.price) ? 0 : b.price;
+          return priceB - priceA;
+        });
         break;
       case 'featured':
         filtered.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));

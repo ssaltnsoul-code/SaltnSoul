@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import { Product, CartItem, ProductVariant } from '@/types/product';
 import { shopifyClient, makeAdminAPIRequest } from './shopify';
 
@@ -17,48 +16,116 @@ export const initializeCart = async () => {
 let products: Product[] = [];
 
 // Helper function to transform Shopify product to our Product type
-const transformShopifyProduct = (shopifyProduct: any): Product => {
+const transformShopifyProduct = (shopifyProduct: any): Product | null => {
+  if (!shopifyProduct) {
+    console.error('Invalid shopify product data');
+    return null;
+  }
+  
   const firstVariant = shopifyProduct.variants?.[0];
   
-  return {
-    id: shopifyProduct.id,
-    shopifyId: shopifyProduct.id,
-    handle: shopifyProduct.handle,
-    name: shopifyProduct.title,
-    description: shopifyProduct.description,
-    price: firstVariant ? parseFloat(firstVariant.price) : 0,
-    originalPrice: firstVariant?.compareAtPrice ? parseFloat(firstVariant.compareAtPrice) : undefined,
-    image: shopifyProduct.images?.[0]?.src || '',
+  // Handle price - Shopify SDK returns price as string or number
+  let productPrice = 0;
+  if (firstVariant?.price) {
+    if (typeof firstVariant.price === 'string') {
+      productPrice = parseFloat(firstVariant.price);
+    } else if (typeof firstVariant.price === 'object' && firstVariant.price.amount) {
+      productPrice = parseFloat(firstVariant.price.amount);
+    } else {
+      productPrice = parseFloat(firstVariant.price);
+    }
+  }
+  
+  // Ensure price is a valid number
+  if (isNaN(productPrice) || productPrice < 0) {
+    productPrice = 0;
+  }
+  
+  // Handle availability
+  const isInStock = shopifyProduct.variants?.some((v: any) => v.availableForSale) || false;
+  
+  // Handle images
+  const imageUrl = shopifyProduct.images?.[0]?.src || shopifyProduct.images?.[0]?.url || '';
+  
+  // Handle original price
+  let originalPrice = undefined;
+  if (firstVariant?.compareAtPrice) {
+    const parsedOriginalPrice = parseFloat(firstVariant.compareAtPrice);
+    if (!isNaN(parsedOriginalPrice) && parsedOriginalPrice > 0) {
+      originalPrice = parsedOriginalPrice;
+    }
+  }
+  
+  const transformed = {
+    id: shopifyProduct.id || '',
+    shopifyId: shopifyProduct.id || '',
+    handle: shopifyProduct.handle || '',
+    name: shopifyProduct.title || 'Untitled Product',
+    description: shopifyProduct.description || '',
+    price: productPrice,
+    originalPrice,
+    image: imageUrl,
     category: shopifyProduct.productType || 'Uncategorized',
     sizes: shopifyProduct.options?.find((opt: any) => opt.name.toLowerCase().includes('size'))?.values || [],
     colors: shopifyProduct.options?.find((opt: any) => opt.name.toLowerCase().includes('color'))?.values || [],
-    inStock: shopifyProduct.variants?.some((v: any) => v.availableForSale) || false,
+    inStock: isInStock,
     featured: shopifyProduct.tags?.includes('featured') || false,
     stockQuantity: shopifyProduct.variants?.reduce((total: number, variant: any) => 
       total + (variant.inventory?.quantity || 0), 0) || 0,
-    variants: shopifyProduct.variants?.map((variant: any) => ({
-      id: variant.id,
-      title: variant.title,
-      price: parseFloat(variant.price),
-      compareAtPrice: variant.compareAtPrice ? parseFloat(variant.compareAtPrice) : undefined,
-      availableForSale: variant.availableForSale,
-      selectedOptions: variant.selectedOptions || [],
-    })) || [],
+    variants: shopifyProduct.variants?.map((variant: any) => {
+      let variantPrice = 0;
+      if (variant.price) {
+        if (typeof variant.price === 'object' && variant.price.amount) {
+          variantPrice = parseFloat(variant.price.amount);
+        } else {
+          variantPrice = parseFloat(variant.price);
+        }
+      }
+      if (isNaN(variantPrice)) variantPrice = 0;
+      
+      let variantComparePrice = undefined;
+      if (variant.compareAtPrice) {
+        const parsed = parseFloat(variant.compareAtPrice);
+        if (!isNaN(parsed) && parsed > 0) {
+          variantComparePrice = parsed;
+        }
+      }
+      
+      return {
+        id: variant.id || '',
+        title: variant.title || '',
+        price: variantPrice,
+        compareAtPrice: variantComparePrice,
+        availableForSale: variant.availableForSale || false,
+        selectedOptions: variant.selectedOptions || [],
+      };
+    }) || [],
   };
+  
+  return transformed;
 };
 
-// Fetch all products from Shopify
+// Fetch all products from Shopify with enhanced error handling
 export const getAllProducts = async (): Promise<Product[]> => {
   try {
+    console.log('Fetching products from Shopify...');
     const shopifyProducts = await shopifyClient.product.fetchAll();
+    console.log('Raw Shopify products:', shopifyProducts);
     
-    const transformedProducts = shopifyProducts.map(transformShopifyProduct);
+    if (!shopifyProducts || shopifyProducts.length === 0) {
+      console.warn('No products returned from Shopify');
+      return [];
+    }
+    
+    const transformedProducts = shopifyProducts.map(transformShopifyProduct).filter((p): p is Product => p !== null);
+    console.log('✅ Products loaded successfully:', transformedProducts.length, 'products');
     products = transformedProducts;
     
     return transformedProducts;
   } catch (error) {
     console.error('Error fetching products from Shopify:', error);
-    return products;
+    // Return empty array instead of cached products to make the issue obvious
+    return [];
   }
 };
 
@@ -94,56 +161,12 @@ export const createProduct = async (productData: Omit<Product, 'id'>): Promise<P
     const newProduct = transformShopifyProduct(response.product);
     products.push(newProduct);
     return newProduct;
-=======
-import { Product } from '@/types/product';
-import { CartItem } from '@/types/product';
-import { shopifyStorefrontFetch, CHECKOUT_CREATE_MUTATION } from './shopify';
-
-// Shopify Admin API calls (server-side via Netlify functions)
-const callShopifyAdmin = async (action: string, params: any = {}) => {
-  try {
-    const response = await fetch('/api/shopify-admin', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ action, ...params }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API call failed: ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error(`Shopify Admin API error (${action}):`, error);
-    throw error;
-  }
-};
-
-// Get all products from Shopify
-export const getAllProducts = async (): Promise<Product[]> => {
-  try {
-    return await callShopifyAdmin('getProducts');
-  } catch (error) {
-    console.error('Error fetching products from Shopify:', error);
-    // Return empty array as fallback
-    return [];
-  }
-};
-
-// Create new product in Shopify
-export const createProduct = async (productData: Partial<Product>): Promise<Product> => {
-  try {
-    return await callShopifyAdmin('createProduct', { product: productData });
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
   } catch (error) {
     console.error('Error creating product in Shopify:', error);
     throw error;
   }
 };
 
-<<<<<<< HEAD
 // Update product via Shopify Admin API
 export const updateProduct = async (id: string, updates: Partial<Product>): Promise<Product> => {
   try {
@@ -173,19 +196,12 @@ export const updateProduct = async (id: string, updates: Partial<Product>): Prom
     }
 
     return updatedProduct;
-=======
-// Update product in Shopify
-export const updateProduct = async (id: string, productData: Partial<Product>): Promise<Product> => {
-  try {
-    return await callShopifyAdmin('updateProduct', { id, product: productData });
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
   } catch (error) {
     console.error('Error updating product in Shopify:', error);
     throw error;
   }
 };
 
-<<<<<<< HEAD
 // Delete product via Shopify Admin API
 export const deleteProduct = async (id: string): Promise<void> => {
   try {
@@ -199,19 +215,10 @@ export const deleteProduct = async (id: string): Promise<void> => {
     products = products.filter(p => p.id !== id);
   } catch (error) {
     console.error('Error deleting product in Shopify:', error);
-=======
-// Delete product from Shopify
-export const deleteProduct = async (id: string): Promise<void> => {
-  try {
-    await callShopifyAdmin('deleteProduct', { id });
-  } catch (error) {
-    console.error('Error deleting product from Shopify:', error);
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
     throw error;
   }
 };
 
-<<<<<<< HEAD
 // Get single product by handle or ID
 export const getProduct = async (handleOrId: string): Promise<Product | null> => {
   try {
@@ -401,114 +408,13 @@ export const updateInventory = async (variantId: string, quantity: number) => {
       product.stockQuantity = product.variants?.reduce((total, v) => 
         total + (v.id === variantId ? quantity : 0), 0) || 0;
       product.inStock = quantity > 0;
-=======
-// Get all orders from Shopify
-export const getAllOrders = async () => {
-  try {
-    return await callShopifyAdmin('getOrders');
-  } catch (error) {
-    console.error('Error fetching orders from Shopify:', error);
-    return [];
-  }
-};
-
-// Get all customers from Shopify
-export const getAllCustomers = async () => {
-  try {
-    return await callShopifyAdmin('getCustomers');
-  } catch (error) {
-    console.error('Error fetching customers from Shopify:', error);
-    return [];
-  }
-};
-
-// Get inventory levels from Shopify
-export const getInventoryLevels = async (): Promise<Record<string, number>> => {
-  try {
-    const products = await getAllProducts();
-    const inventory: Record<string, number> = {};
-    
-    products.forEach(product => {
-      inventory[product.id] = product.inventory_count || 0;
-    });
-
-    return inventory;
-  } catch (error) {
-    console.error('Error fetching inventory from Shopify:', error);
-    return {};
-  }
-};
-
-// Update inventory in Shopify
-export const updateInventory = async (productId: string, quantity: number): Promise<void> => {
-  try {
-    // For simplicity, we'll use the first variant of the product
-    // In a real implementation, you'd need to handle multiple variants
-    await callShopifyAdmin('updateInventory', { variantId: productId, quantity });
-  } catch (error) {
-    console.error('Error updating inventory in Shopify:', error);
-    throw error;
-  }
-};
-
-// Create Shopify checkout for embedded checkout
-export const createShopifyCheckout = async (checkoutData: {
-  items: CartItem[];
-  customerInfo: {
-    name: string;
-    email: string;
-    address: string;
-    city: string;
-    state: string;
-    zipCode: string;
-  };
-}) => {
-  try {
-    // Transform cart items to Shopify line items
-    const lineItems = checkoutData.items.map(item => ({
-      variantId: `gid://shopify/ProductVariant/${item.product.id}`,
-      quantity: item.quantity,
-    }));
-
-    const checkoutInput = {
-      lineItems,
-      email: checkoutData.customerInfo.email,
-      shippingAddress: {
-        firstName: checkoutData.customerInfo.name.split(' ')[0],
-        lastName: checkoutData.customerInfo.name.split(' ').slice(1).join(' '),
-        address1: checkoutData.customerInfo.address,
-        city: checkoutData.customerInfo.city,
-        province: checkoutData.customerInfo.state,
-        zip: checkoutData.customerInfo.zipCode,
-        country: 'US',
-      },
-    };
-
-    const data = await shopifyStorefrontFetch(CHECKOUT_CREATE_MUTATION, {
-      input: checkoutInput,
-    });
-
-    if (data.checkoutCreate.checkoutUserErrors.length > 0) {
-      throw new Error(data.checkoutCreate.checkoutUserErrors[0].message);
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
     }
-
-    return {
-      checkout: data.checkoutCreate.checkout,
-      checkoutId: data.checkoutCreate.checkout.id.split('/').pop(),
-      checkoutUrl: data.checkoutCreate.checkout.webUrl,
-    };
   } catch (error) {
-<<<<<<< HEAD
     console.error('Error updating inventory in Shopify:', error);
-=======
-    console.error('Error creating Shopify checkout:', error);
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
     throw error;
   }
 };
 
-<<<<<<< HEAD
 // Admin authentication (simplified for Shopify)
 export const authenticateAdmin = async (email: string, password: string) => {
   // Simple admin authentication - in production, integrate with proper auth system
@@ -525,34 +431,39 @@ export const verifyAdminToken = async () => {
   return token && token.startsWith('shopify_admin_token_');
 };
 
+// Get all customers via Shopify Admin API
+export const getAllCustomers = async () => {
+  try {
+    const response = await makeAdminAPIRequest('customers.json?limit=250');
+    const customers = response.customers;
+    
+    return customers.map((customer: any) => ({
+      id: customer.id,
+      email: customer.email,
+      firstName: customer.first_name,
+      lastName: customer.last_name,
+      phone: customer.phone,
+      ordersCount: customer.orders_count,
+      totalSpent: parseFloat(customer.total_spent || '0'),
+      createdAt: customer.created_at,
+      updatedAt: customer.updated_at,
+      address: customer.default_address ? {
+        address1: customer.default_address.address1,
+        city: customer.default_address.city,
+        province: customer.default_address.province,
+        zip: customer.default_address.zip,
+        country: customer.default_address.country,
+      } : null,
+    }));
+  } catch (error) {
+    console.error('Error fetching customers from Shopify:', error);
+    return [];
+  }
+};
+
 // Initialize products cache
 export const initializeProducts = (defaultProducts?: Product[]) => {
   if (defaultProducts) {
     products = defaultProducts;
   }
-}; 
-=======
-// Initialize products - no longer needed since we're using Shopify as source of truth
-export const initializeProducts = async (products: any[]) => {
-  // This function is now deprecated since we're using Shopify as the source of truth
-  console.log('Products are now managed in Shopify. Please add products through your Shopify admin or the admin panel.');
 };
-
-// Process order - this will be handled by Shopify's checkout
-export const processOrder = async (orderData: any) => {
-  // Orders are now processed through Shopify's checkout
-  // This function is kept for compatibility but orders are created automatically by Shopify
-  console.log('Orders are now processed through Shopify checkout');
-  return orderData;
-};
-
-// Create payment intent - no longer needed with Shopify checkout
-export const createPaymentIntent = async (amount: number) => {
-  // Payment intents are now handled by Shopify
-  console.log('Payment processing is now handled by Shopify');
-  return {
-    clientSecret: 'shopify_handled',
-    id: `shopify_${Date.now()}`,
-  };
-};
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a

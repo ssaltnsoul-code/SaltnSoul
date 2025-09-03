@@ -7,7 +7,6 @@ import { SearchAndFilter } from '@/components/SearchAndFilter';
 import { CartDrawer } from '@/components/CartDrawer';
 import { Footer } from '@/components/Footer';
 import { useCart } from '@/hooks/useCart';
-// Remove import of initialProducts - we'll fetch from Shopify
 import { Product } from '@/types/product';
 import { getAllProducts } from '@/lib/api';
 
@@ -22,17 +21,14 @@ const Index = () => {
   useEffect(() => {
     const loadProducts = async () => {
       try {
+        console.log('🔄 Loading products from Shopify...');
         const productsData = await getAllProducts();
+        console.log('✅ Products loaded successfully:', productsData.length, 'products');
         setProducts(productsData);
         setFilteredProducts(productsData);
       } catch (error) {
-<<<<<<< HEAD
-        console.error('Error loading products from Shopify:', error);
+        console.error('❌ Error loading products from Shopify:', error);
         // Set empty array if Shopify fails
-=======
-        console.error('Error loading products:', error);
-        // Fallback to empty array if Shopify API fails
->>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
         setProducts([]);
         setFilteredProducts([]);
       } finally {
@@ -46,6 +42,7 @@ const Index = () => {
     const interval = setInterval(() => {
       getAllProducts().then(productsData => {
         if (productsData && productsData.length > 0) {
+          console.log('🔄 Refreshed products:', productsData.length);
           setProducts(productsData);
           setFilteredProducts(productsData);
         }
@@ -69,6 +66,7 @@ const Index = () => {
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <span className="ml-4 text-lg">Loading your Shopify products...</span>
             </div>
           ) : (
             <>
@@ -76,10 +74,10 @@ const Index = () => {
                 products={products}
                 onFilterChange={setFilteredProducts}
               />
-        <ProductGrid 
+              <ProductGrid 
                 products={filteredProducts}
-          onAddToCart={addItem}
-        />
+                onAddToCart={addItem}
+              />
             </>
           )}
         </div>
