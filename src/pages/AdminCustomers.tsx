@@ -39,115 +39,30 @@ import {
   Star
 } from 'lucide-react';
 
-interface Customer {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  address: {
-    city: string;
-    state: string;
-    country: string;
-  };
-  totalOrders: number;
-  totalSpent: number;
-  joinDate: string;
-  lastOrderDate: string;
-  status: 'active' | 'inactive';
-  loyaltyTier: 'bronze' | 'silver' | 'gold' | 'platinum';
-}
+import { getAllCustomers } from '@/lib/api';
 
 export default function AdminCustomers() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [isCustomerDetailOpen, setIsCustomerDetailOpen] = useState(false);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock customers data - in production, this would come from your API
-  const [customers] = useState<Customer[]>([
-    {
-      id: 'CUST-001',
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@email.com',
-      phone: '+1 (555) 123-4567',
-      address: {
-        city: 'New York',
-        state: 'NY',
-        country: 'US'
-      },
-      totalOrders: 8,
-      totalSpent: 1247.50,
-      joinDate: '2023-03-15T00:00:00Z',
-      lastOrderDate: '2024-01-15T10:30:00Z',
-      status: 'active',
-      loyaltyTier: 'gold'
-    },
-    {
-      id: 'CUST-002',
-      name: 'Mike Chen',
-      email: 'mike.chen@email.com',
-      phone: '+1 (555) 234-5678',
-      address: {
-        city: 'Los Angeles',
-        state: 'CA',
-        country: 'US'
-      },
-      totalOrders: 3,
-      totalSpent: 456.78,
-      joinDate: '2023-08-22T00:00:00Z',
-      lastOrderDate: '2024-01-14T15:45:00Z',
-      status: 'active',
-      loyaltyTier: 'silver'
-    },
-    {
-      id: 'CUST-003',
-      name: 'Emily Davis',
-      email: 'emily.davis@email.com',
-      address: {
-        city: 'Chicago',
-        state: 'IL',
-        country: 'US'
-      },
-      totalOrders: 12,
-      totalSpent: 2134.90,
-      joinDate: '2022-11-08T00:00:00Z',
-      lastOrderDate: '2024-01-12T09:20:00Z',
-      status: 'active',
-      loyaltyTier: 'platinum'
-    },
-    {
-      id: 'CUST-004',
-      name: 'Alex Rodriguez',
-      email: 'alex.rodriguez@email.com',
-      phone: '+1 (555) 345-6789',
-      address: {
-        city: 'Miami',
-        state: 'FL',
-        country: 'US'
-      },
-      totalOrders: 2,
-      totalSpent: 198.50,
-      joinDate: '2024-01-05T00:00:00Z',
-      lastOrderDate: '2024-01-10T14:20:00Z',
-      status: 'active',
-      loyaltyTier: 'bronze'
-    },
-    {
-      id: 'CUST-005',
-      name: 'Jessica Wong',
-      email: 'jessica.wong@email.com',
-      address: {
-        city: 'Seattle',
-        state: 'WA',
-        country: 'US'
-      },
-      totalOrders: 1,
-      totalSpent: 89.00,
-      joinDate: '2023-12-20T00:00:00Z',
-      lastOrderDate: '2023-12-22T16:15:00Z',
-      status: 'inactive',
-      loyaltyTier: 'bronze'
-    }
-  ]);
+  // Load customers from Shopify
+  useEffect(() => {
+    const loadCustomers = async () => {
+      try {
+        const customersData = await getAllCustomers();
+        setCustomers(customersData);
+      } catch (error) {
+        console.error('Error loading customers:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCustomers();
+  }, []);
 
   const filteredCustomers = customers.filter(customer =>
     customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -176,7 +91,7 @@ export default function AdminCustomers() {
       : 'bg-gray-100 text-gray-800';
   };
 
-  const handleViewCustomer = (customer: Customer) => {
+  const handleViewCustomer = (customer: any) => {
     setSelectedCustomer(customer);
     setIsCustomerDetailOpen(true);
   };
@@ -200,6 +115,16 @@ export default function AdminCustomers() {
 
   const totalRevenue = customers.reduce((sum, customer) => sum + customer.totalSpent, 0);
   const averageOrderValue = totalRevenue / customers.reduce((sum, customer) => sum + customer.totalOrders, 0);
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>

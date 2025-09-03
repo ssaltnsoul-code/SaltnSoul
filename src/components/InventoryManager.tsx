@@ -5,20 +5,24 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { AlertTriangle, Package, Plus, Minus } from 'lucide-react';
-import { getInventoryLevels, updateInventory } from '@/lib/api';
-import { products } from '@/data/products';
+import { getInventoryLevels, updateInventory, getAllProducts } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
 
 export function InventoryManager() {
   const [inventory, setInventory] = useState<Record<string, number>>({});
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
 
   const loadInventory = useCallback(async () => {
     try {
-      const data = await getInventoryLevels();
-      setInventory(data);
+      const [inventoryData, productsData] = await Promise.all([
+        getInventoryLevels(),
+        getAllProducts()
+      ]);
+      setInventory(inventoryData);
+      setProducts(productsData);
     } catch (error) {
       console.error('Error loading inventory:', error);
       toast({

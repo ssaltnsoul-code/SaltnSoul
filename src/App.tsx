@@ -28,11 +28,11 @@ const App = () => (
     <TooltipProvider>
       <AdminProvider>
         <CartProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-                          {/* Public Routes */}
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public Routes */}
             <Route path="/" element={<Index />} />
             <Route path="/product/:productId" element={<ProductDetail />} />
             <Route path="/checkout" element={<Checkout />} />
@@ -41,46 +41,46 @@ const App = () => (
             <Route path="/contact" element={<Contact />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/size-guide" element={<SizeGuide />} />
-              
-              {/* Admin Routes */}
-              <Route path="/admin" element={<AdminLogin />} />
-              <Route 
-                path="/admin/dashboard" 
-                element={
-                  <AdminProtectedRoute>
-                    <AdminDashboard />
-                  </AdminProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/products" 
-                element={
-                  <AdminProtectedRoute>
-                    <AdminProducts />
-                  </AdminProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/orders" 
-                element={
-                  <AdminProtectedRoute>
-                    <AdminOrders />
-                  </AdminProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin/customers" 
-                element={
-                  <AdminProtectedRoute>
-                    <AdminCustomers />
-                  </AdminProtectedRoute>
-                } 
-              />
-              
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+            
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminLogin />} />
+            <Route 
+              path="/admin/dashboard" 
+              element={
+                <AdminProtectedRoute>
+                  <AdminDashboard />
+                </AdminProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/products" 
+              element={
+                <AdminProtectedRoute>
+                  <AdminProducts />
+                </AdminProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/orders" 
+              element={
+                <AdminProtectedRoute>
+                  <AdminOrders />
+                </AdminProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/admin/customers" 
+              element={
+                <AdminProtectedRoute>
+                  <AdminCustomers />
+                </AdminProtectedRoute>
+              } 
+            />
+            
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
         </CartProvider>
       </AdminProvider>
     </TooltipProvider>

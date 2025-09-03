@@ -42,6 +42,14 @@ export function CartProvider({ children }: CartProviderProps) {
   }, [items]);
 
   const addItem = (product: Product, size: string, color: string, quantity: number = 1) => {
+    // Find matching variant based on size and color
+    const variant = product.variants?.find(v => 
+      v.selectedOptions.some(opt => 
+        (opt.name.toLowerCase().includes('size') && opt.value === size) ||
+        (opt.name.toLowerCase().includes('color') && opt.value === color)
+      )
+    );
+
     setItems(prevItems => {
       const existingItem = prevItems.find(
         item => item.product.id === product.id && item.size === size && item.color === color
@@ -63,7 +71,13 @@ export function CartProvider({ children }: CartProviderProps) {
           title: "Added to cart",
           description: `${product.name} added to your cart`,
         });
-        return [...prevItems, { product, quantity, size, color }];
+        return [...prevItems, { 
+          product, 
+          quantity, 
+          size, 
+          color,
+          variantId: variant?.id 
+        }];
       }
     });
   };

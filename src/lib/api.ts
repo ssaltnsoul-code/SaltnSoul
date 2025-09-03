@@ -1,225 +1,458 @@
-import { Product, CartItem } from '@/types/product';
-import { supabase, type Product as SupabaseProduct, type Order as SupabaseOrder } from './supabase';
-import { createPaymentIntent, processMockPayment } from './stripe';
+<<<<<<< HEAD
+import { Product, CartItem, ProductVariant } from '@/types/product';
+import { shopifyClient, makeAdminAPIRequest } from './shopify';
 
-// Mock data storage (fallback for development)
-const orders: Array<{
-  id: string;
-  items: Array<{
-    product: {
-      id: string;
-      name: string;
-      price: number;
-      image: string;
-    };
-    quantity: number;
-    size: string;
-    color: string;
-  }>;
-  customerInfo: {
-    name: string;
-    email: string;
-    address: string;
-    city: string;
-    state: string;
-    zipCode: string;
-  };
-  total: number;
-  status: string;
-  createdAt: string;
-  estimatedDelivery: string;
-}> = [];
-const inventory: Record<string, number> = {};
+// Cart management
+let cart: any = null;
 
-// Product management with Supabase integration
-let products: Product[] = [];
-
-// Initialize inventory
-export const initializeInventory = () => {
-  const defaultInventory = [
-    { id: '1', stock: 50 },
-    { id: '2', stock: 30 },
-    { id: '3', stock: 45 },
-    { id: '4', stock: 25 },
-    { id: '5', stock: 20 },
-    { id: '6', stock: 35 },
-  ];
-  
-  defaultInventory.forEach(product => {
-    inventory[product.id] = product.stock;
-  });
+// Initialize Shopify cart
+export const initializeCart = async () => {
+  if (!cart) {
+    cart = await shopifyClient.checkout.create();
+  }
+  return cart;
 };
 
-// Real Supabase product operations
+// Product cache
+let products: Product[] = [];
+
+// Helper function to transform Shopify product to our Product type
+const transformShopifyProduct = (shopifyProduct: any): Product => {
+  const firstVariant = shopifyProduct.variants?.[0];
+  
+  return {
+    id: shopifyProduct.id,
+    shopifyId: shopifyProduct.id,
+    handle: shopifyProduct.handle,
+    name: shopifyProduct.title,
+    description: shopifyProduct.description,
+    price: firstVariant ? parseFloat(firstVariant.price) : 0,
+    originalPrice: firstVariant?.compareAtPrice ? parseFloat(firstVariant.compareAtPrice) : undefined,
+    image: shopifyProduct.images?.[0]?.src || '',
+    category: shopifyProduct.productType || 'Uncategorized',
+    sizes: shopifyProduct.options?.find((opt: any) => opt.name.toLowerCase().includes('size'))?.values || [],
+    colors: shopifyProduct.options?.find((opt: any) => opt.name.toLowerCase().includes('color'))?.values || [],
+    inStock: shopifyProduct.variants?.some((v: any) => v.availableForSale) || false,
+    featured: shopifyProduct.tags?.includes('featured') || false,
+    stockQuantity: shopifyProduct.variants?.reduce((total: number, variant: any) => 
+      total + (variant.inventory?.quantity || 0), 0) || 0,
+    variants: shopifyProduct.variants?.map((variant: any) => ({
+      id: variant.id,
+      title: variant.title,
+      price: parseFloat(variant.price),
+      compareAtPrice: variant.compareAtPrice ? parseFloat(variant.compareAtPrice) : undefined,
+      availableForSale: variant.availableForSale,
+      selectedOptions: variant.selectedOptions || [],
+    })) || [],
+  };
+};
+
+// Fetch all products from Shopify
 export const getAllProducts = async (): Promise<Product[]> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.warn('Supabase error, falling back to mock data:', error);
-      return products;
-    }
-
-    // Transform Supabase data to match our Product type
-    const transformedProducts: Product[] = data.map((item: any) => ({
-      id: item.id,
-      name: item.name,
-      description: item.description,
-      price: item.price,
-      originalPrice: item.original_price,
-      image: item.image_url, // Updated to match your schema
-      category: item.category,
-      sizes: item.sizes,
-      colors: item.colors,
-      inStock: item.in_stock,
-      featured: item.featured,
-      stockQuantity: item.inventory_count, // Updated to match your schema
-    }));
-
+    const shopifyProducts = await shopifyClient.product.fetchAll();
+    
+    const transformedProducts = shopifyProducts.map(transformShopifyProduct);
     products = transformedProducts;
+    
     return transformedProducts;
   } catch (error) {
-    console.warn('Error fetching from Supabase, using mock data:', error);
+    console.error('Error fetching products from Shopify:', error);
     return products;
   }
 };
 
+// Create product via Shopify Admin API
 export const createProduct = async (productData: Omit<Product, 'id'>): Promise<Product> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .insert([{
-        name: productData.name,
-        description: productData.description,
-        price: productData.price,
-        original_price: productData.originalPrice,
-        image_url: productData.image, // Updated to match your schema
-        category: productData.category,
-        sizes: productData.sizes,
-        colors: productData.colors,
-        in_stock: productData.inStock,
-        featured: productData.featured,
-        inventory_count: productData.stockQuantity, // Updated to match your schema
-      }])
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    const newProduct: Product = {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      originalPrice: data.original_price,
-      image: data.image_url, // Updated to match your schema
-      category: data.category,
-      sizes: data.sizes,
-      colors: data.colors,
-      inStock: data.in_stock,
-      featured: data.featured,
-      stockQuantity: data.inventory_count, // Updated to match your schema
+    const shopifyProductData = {
+      product: {
+        title: productData.name,
+        body_html: productData.description,
+        vendor: 'SaltnSoul',
+        product_type: productData.category,
+        tags: productData.featured ? 'featured' : '',
+        images: productData.image ? [{ src: productData.image }] : [],
+        variants: [{
+          price: productData.price.toString(),
+          compare_at_price: productData.originalPrice?.toString(),
+          inventory_management: 'shopify',
+          inventory_quantity: productData.stockQuantity || 0,
+        }],
+        options: [
+          ...(productData.sizes.length > 0 ? [{ name: 'Size', values: productData.sizes }] : []),
+          ...(productData.colors.length > 0 ? [{ name: 'Color', values: productData.colors }] : []),
+        ],
+      },
     };
 
+    const response = await makeAdminAPIRequest('products.json', {
+      method: 'POST',
+      body: JSON.stringify(shopifyProductData),
+    });
+
+    const newProduct = transformShopifyProduct(response.product);
     products.push(newProduct);
     return newProduct;
+=======
+import { Product } from '@/types/product';
+import { CartItem } from '@/types/product';
+import { shopifyStorefrontFetch, CHECKOUT_CREATE_MUTATION } from './shopify';
+
+// Shopify Admin API calls (server-side via Netlify functions)
+const callShopifyAdmin = async (action: string, params: any = {}) => {
+  try {
+    const response = await fetch('/api/shopify-admin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ action, ...params }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API call failed: ${response.status}`);
+    }
+
+    return await response.json();
   } catch (error) {
-    console.warn('Error creating product in Supabase, using mock data:', error);
-    // Fallback to mock creation
-    const newProduct: Product = {
-      id: `product-${Date.now()}`,
-      ...productData,
-    };
-    products.push(newProduct);
-    return newProduct;
+    console.error(`Shopify Admin API error (${action}):`, error);
+    throw error;
   }
 };
 
+// Get all products from Shopify
+export const getAllProducts = async (): Promise<Product[]> => {
+  try {
+    return await callShopifyAdmin('getProducts');
+  } catch (error) {
+    console.error('Error fetching products from Shopify:', error);
+    // Return empty array as fallback
+    return [];
+  }
+};
+
+// Create new product in Shopify
+export const createProduct = async (productData: Partial<Product>): Promise<Product> => {
+  try {
+    return await callShopifyAdmin('createProduct', { product: productData });
+>>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
+  } catch (error) {
+    console.error('Error creating product in Shopify:', error);
+    throw error;
+  }
+};
+
+<<<<<<< HEAD
+// Update product via Shopify Admin API
 export const updateProduct = async (id: string, updates: Partial<Product>): Promise<Product> => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .update({
-        name: updates.name,
-        description: updates.description,
-        price: updates.price,
-        original_price: updates.originalPrice,
-        image_url: updates.image, // Updated to match your schema
-        category: updates.category,
-        sizes: updates.sizes,
-        colors: updates.colors,
-        in_stock: updates.inStock,
-        featured: updates.featured,
-        inventory_count: updates.stockQuantity, // Updated to match your schema
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    const updatedProduct: Product = {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      originalPrice: data.original_price,
-      image: data.image_url, // Updated to match your schema
-      category: data.category,
-      sizes: data.sizes,
-      colors: data.colors,
-      inStock: data.in_stock,
-      featured: data.featured,
-      stockQuantity: data.inventory_count, // Updated to match your schema
+    const shopifyId = id.startsWith('gid://') ? id.split('/').pop() : id;
+    
+    const updateData = {
+      product: {
+        id: shopifyId,
+        ...(updates.name && { title: updates.name }),
+        ...(updates.description && { body_html: updates.description }),
+        ...(updates.category && { product_type: updates.category }),
+        ...(updates.featured !== undefined && { tags: updates.featured ? 'featured' : '' }),
+      },
     };
 
-    // Update local products array
+    const response = await makeAdminAPIRequest(`products/${shopifyId}.json`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData),
+    });
+
+    const updatedProduct = transformShopifyProduct(response.product);
+    
+    // Update local cache
     const index = products.findIndex(p => p.id === id);
     if (index !== -1) {
       products[index] = updatedProduct;
     }
 
     return updatedProduct;
+=======
+// Update product in Shopify
+export const updateProduct = async (id: string, productData: Partial<Product>): Promise<Product> => {
+  try {
+    return await callShopifyAdmin('updateProduct', { id, product: productData });
+>>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
   } catch (error) {
-    console.warn('Error updating product in Supabase, using mock data:', error);
-    // Fallback to mock update
-    const index = products.findIndex(p => p.id === id);
-    if (index !== -1) {
-      products[index] = { ...products[index], ...updates };
-      return products[index];
-    }
-    throw new Error('Product not found');
+    console.error('Error updating product in Shopify:', error);
+    throw error;
   }
 };
 
+<<<<<<< HEAD
+// Delete product via Shopify Admin API
 export const deleteProduct = async (id: string): Promise<void> => {
   try {
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', id);
+    const shopifyId = id.startsWith('gid://') ? id.split('/').pop() : id;
+    
+    await makeAdminAPIRequest(`products/${shopifyId}.json`, {
+      method: 'DELETE',
+    });
 
-    if (error) throw error;
-
-    // Remove from local products array
+    // Remove from local cache
     products = products.filter(p => p.id !== id);
   } catch (error) {
-    console.warn('Error deleting product in Supabase, using mock data:', error);
-    // Fallback to mock deletion
-    products = products.filter(p => p.id !== id);
+    console.error('Error deleting product in Shopify:', error);
+=======
+// Delete product from Shopify
+export const deleteProduct = async (id: string): Promise<void> => {
+  try {
+    await callShopifyAdmin('deleteProduct', { id });
+  } catch (error) {
+    console.error('Error deleting product from Shopify:', error);
+>>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
+    throw error;
   }
 };
 
-export const initializeProducts = (defaultProducts: Product[]) => {
-  products = defaultProducts;
+<<<<<<< HEAD
+// Get single product by handle or ID
+export const getProduct = async (handleOrId: string): Promise<Product | null> => {
+  try {
+    const shopifyProduct = await shopifyClient.product.fetchByHandle(handleOrId);
+    return transformShopifyProduct(shopifyProduct);
+  } catch (error) {
+    try {
+      const shopifyProduct = await shopifyClient.product.fetch(handleOrId);
+      return transformShopifyProduct(shopifyProduct);
+    } catch (secondError) {
+      console.error('Error fetching product from Shopify:', error, secondError);
+      return null;
+    }
+  }
 };
 
-// Real order processing with Supabase and Stripe integration
-export const processOrder = async (orderData: {
+// Cart operations using Shopify Storefront API
+export const addToCart = async (variantId: string, quantity: number = 1) => {
+  try {
+    if (!cart) {
+      cart = await initializeCart();
+    }
+    
+    const lineItems = [{
+      variantId,
+      quantity,
+    }];
+    
+    cart = await shopifyClient.checkout.addLineItems(cart.id, lineItems);
+    return cart;
+  } catch (error) {
+    console.error('Error adding to cart:', error);
+    throw error;
+  }
+};
+
+export const removeFromCart = async (lineItemId: string) => {
+  try {
+    if (!cart) return null;
+    
+    cart = await shopifyClient.checkout.removeLineItems(cart.id, [lineItemId]);
+    return cart;
+  } catch (error) {
+    console.error('Error removing from cart:', error);
+    throw error;
+  }
+};
+
+export const updateCartItem = async (lineItemId: string, quantity: number) => {
+  try {
+    if (!cart) return null;
+    
+    const lineItems = [{
+      id: lineItemId,
+      quantity,
+    }];
+    
+    cart = await shopifyClient.checkout.updateLineItems(cart.id, lineItems);
+    return cart;
+  } catch (error) {
+    console.error('Error updating cart item:', error);
+    throw error;
+  }
+};
+
+export const getCart = async () => {
+  if (!cart) {
+    cart = await initializeCart();
+  }
+  return cart;
+};
+
+export const clearCart = async () => {
+  cart = await shopifyClient.checkout.create();
+  return cart;
+};
+
+// Get order status via Shopify Admin API
+export const getOrderStatus = async (orderId: string) => {
+  try {
+    const response = await makeAdminAPIRequest(`orders/${orderId}.json`);
+    const order = response.order;
+    
+    return {
+      id: order.id,
+      status: order.financial_status,
+      fulfillmentStatus: order.fulfillment_status,
+      total: parseFloat(order.total_price),
+      createdAt: order.created_at,
+      customerEmail: order.email,
+    };
+  } catch (error) {
+    console.error('Error fetching order status from Shopify:', error);
+    return null;
+  }
+};
+
+// Get all orders via Shopify Admin API
+export const getAllOrders = async () => {
+  try {
+    const response = await makeAdminAPIRequest('orders.json?status=any&limit=250');
+    const orders = response.orders;
+    
+    return orders.map((order: any) => ({
+      id: order.id,
+      orderNumber: order.order_number,
+      customerInfo: {
+        name: order.customer ? `${order.customer.first_name} ${order.customer.last_name}` : 'Guest',
+        email: order.email,
+        address: order.shipping_address ? 
+          `${order.shipping_address.address1}, ${order.shipping_address.city}, ${order.shipping_address.province} ${order.shipping_address.zip}` : '',
+      },
+      total: parseFloat(order.total_price),
+      status: order.financial_status,
+      fulfillmentStatus: order.fulfillment_status,
+      createdAt: order.created_at,
+      items: order.line_items?.map((item: any) => ({
+        product: {
+          id: item.product_id,
+          name: item.title,
+          price: parseFloat(item.price),
+          image: '', // Would need separate API call to get product images
+        },
+        quantity: item.quantity,
+        variant: item.variant_title,
+      })) || [],
+    }));
+  } catch (error) {
+    console.error('Error fetching orders from Shopify:', error);
+    return [];
+  }
+};
+
+// Get inventory levels via Shopify Admin API
+export const getInventoryLevels = async () => {
+  try {
+    const response = await makeAdminAPIRequest('products.json?limit=250&fields=id,variants');
+    const products = response.products;
+    
+    const inventory: Record<string, number> = {};
+    
+    products.forEach((product: any) => {
+      product.variants.forEach((variant: any) => {
+        inventory[variant.id] = variant.inventory_quantity || 0;
+      });
+    });
+    
+    return inventory;
+  } catch (error) {
+    console.error('Error fetching inventory from Shopify:', error);
+    return {};
+  }
+};
+
+// Update inventory via Shopify Admin API
+export const updateInventory = async (variantId: string, quantity: number) => {
+  try {
+    // First get the inventory item ID
+    const variantResponse = await makeAdminAPIRequest(`variants/${variantId}.json`);
+    const inventoryItemId = variantResponse.variant.inventory_item_id;
+    
+    // Get location ID (assuming first location)
+    const locationsResponse = await makeAdminAPIRequest('locations.json');
+    const locationId = locationsResponse.locations[0]?.id;
+    
+    if (!locationId) {
+      throw new Error('No locations found');
+    }
+    
+    // Update inventory level
+    await makeAdminAPIRequest(`inventory_levels/set.json`, {
+      method: 'POST',
+      body: JSON.stringify({
+        location_id: locationId,
+        inventory_item_id: inventoryItemId,
+        available: quantity,
+      }),
+    });
+    
+    // Update local cache
+    const product = products.find(p => p.variants?.some(v => v.id === variantId));
+    if (product) {
+      const variant = product.variants?.find(v => v.id === variantId);
+      if (variant) {
+        variant.availableForSale = quantity > 0;
+      }
+      product.stockQuantity = product.variants?.reduce((total, v) => 
+        total + (v.id === variantId ? quantity : 0), 0) || 0;
+      product.inStock = quantity > 0;
+=======
+// Get all orders from Shopify
+export const getAllOrders = async () => {
+  try {
+    return await callShopifyAdmin('getOrders');
+  } catch (error) {
+    console.error('Error fetching orders from Shopify:', error);
+    return [];
+  }
+};
+
+// Get all customers from Shopify
+export const getAllCustomers = async () => {
+  try {
+    return await callShopifyAdmin('getCustomers');
+  } catch (error) {
+    console.error('Error fetching customers from Shopify:', error);
+    return [];
+  }
+};
+
+// Get inventory levels from Shopify
+export const getInventoryLevels = async (): Promise<Record<string, number>> => {
+  try {
+    const products = await getAllProducts();
+    const inventory: Record<string, number> = {};
+    
+    products.forEach(product => {
+      inventory[product.id] = product.inventory_count || 0;
+    });
+
+    return inventory;
+  } catch (error) {
+    console.error('Error fetching inventory from Shopify:', error);
+    return {};
+  }
+};
+
+// Update inventory in Shopify
+export const updateInventory = async (productId: string, quantity: number): Promise<void> => {
+  try {
+    // For simplicity, we'll use the first variant of the product
+    // In a real implementation, you'd need to handle multiple variants
+    await callShopifyAdmin('updateInventory', { variantId: productId, quantity });
+  } catch (error) {
+    console.error('Error updating inventory in Shopify:', error);
+    throw error;
+  }
+};
+
+// Create Shopify checkout for embedded checkout
+export const createShopifyCheckout = async (checkoutData: {
   items: CartItem[];
   customerInfo: {
     name: string;
@@ -229,229 +462,58 @@ export const processOrder = async (orderData: {
     state: string;
     zipCode: string;
   };
-  paymentInfo: {
-    cardNumber: string;
-    expiryDate: string;
-    cvv: string;
-  };
 }) => {
   try {
-    // Calculate total
-    const total = orderData.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-
-    // Create payment intent
-    const paymentIntent = await createPaymentIntent(total);
-
-    // Create order in Supabase
-    const { data: order, error: orderError } = await supabase
-      .from('orders')
-      .insert([{
-        customer_email: orderData.customerInfo.email,
-        customer_name: orderData.customerInfo.name,
-        customer_address: orderData.customerInfo.address,
-        customer_city: orderData.customerInfo.city,
-        customer_state: orderData.customerInfo.state,
-        customer_zip: orderData.customerInfo.zipCode,
-        total,
-        status: 'pending',
-        payment_intent_id: paymentIntent.id,
-      }])
-      .select()
-      .single();
-
-    if (orderError) throw orderError;
-
-    // Create order items
-    const orderItems = orderData.items.map(item => ({
-      order_id: order.id,
-      product_id: item.product.id,
+    // Transform cart items to Shopify line items
+    const lineItems = checkoutData.items.map(item => ({
+      variantId: `gid://shopify/ProductVariant/${item.product.id}`,
       quantity: item.quantity,
-      price: item.product.price,
-      size: item.size,
-      color: item.color,
     }));
 
-    const { error: itemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems);
-
-    if (itemsError) throw itemsError;
-
-    // Update inventory
-    for (const item of orderData.items) {
-      await updateProduct(item.product.id, {
-        stockQuantity: (item.product.stockQuantity || 0) - item.quantity,
-        inStock: (item.product.stockQuantity || 0) - item.quantity > 0,
-      });
-    }
-
-    return {
-      id: order.id,
-      items: orderData.items,
-      customerInfo: orderData.customerInfo,
-      total,
-      status: 'processing',
-      createdAt: order.created_at,
-      estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      paymentIntentId: paymentIntent.id,
-    };
-  } catch (error) {
-    console.warn('Error processing order with Supabase, using mock data:', error);
-    
-    // Fallback to mock processing
-    await new Promise(resolve => setTimeout(resolve, 1500));
-
-    // Check inventory
-    for (const item of orderData.items) {
-      const currentStock = inventory[item.product.id] || 0;
-      if (currentStock < item.quantity) {
-        throw new Error(`Insufficient stock for ${item.product.name}. Available: ${currentStock}`);
-      }
-    }
-
-    // Reduce inventory
-    for (const item of orderData.items) {
-      inventory[item.product.id] = (inventory[item.product.id] || 0) - item.quantity;
-    }
-
-    // Create mock order
-    const order = {
-      id: `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      items: orderData.items,
-      customerInfo: orderData.customerInfo,
-      total: orderData.items.reduce((sum, item) => sum + (item.product.price * item.quantity), 0),
-      status: 'processing',
-      createdAt: new Date().toISOString(),
-      estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-
-    orders.push(order);
-    return order;
-  }
-};
-
-// Get order status
-export const getOrderStatus = async (orderId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', orderId)
-      .single();
-
-    if (error) throw error;
-
-    return {
-      id: data.id,
-      status: data.status,
-      total: data.total,
-      createdAt: data.created_at,
-    };
-  } catch (error) {
-    console.warn('Error fetching order status from Supabase:', error);
-    
-    // Fallback to mock data
-    const order = orders.find(o => o.id === orderId);
-    return order ? {
-      id: order.id,
-      status: order.status,
-      total: order.total,
-      createdAt: order.createdAt,
-    } : null;
-  }
-};
-
-// Get all orders (admin)
-export const getAllOrders = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select(`
-        *,
-        order_items (
-          *,
-          products (*)
-        )
-      `)
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    return data.map((order: any) => ({
-      id: order.id,
-      customerInfo: {
-        name: order.customer_name,
-        email: order.customer_email,
-        address: order.customer_address,
-        city: order.customer_city,
-        state: order.customer_state,
-        zipCode: order.customer_zip,
+    const checkoutInput = {
+      lineItems,
+      email: checkoutData.customerInfo.email,
+      shippingAddress: {
+        firstName: checkoutData.customerInfo.name.split(' ')[0],
+        lastName: checkoutData.customerInfo.name.split(' ').slice(1).join(' '),
+        address1: checkoutData.customerInfo.address,
+        city: checkoutData.customerInfo.city,
+        province: checkoutData.customerInfo.state,
+        zip: checkoutData.customerInfo.zipCode,
+        country: 'US',
       },
-      total: order.total,
-      status: order.status,
-      createdAt: order.created_at,
-      items: order.order_items?.map((item: any) => ({
-        product: item.products,
-        quantity: item.quantity,
-        size: item.size,
-        color: item.color,
-      })) || [],
-    }));
-  } catch (error) {
-    console.warn('Error fetching orders from Supabase, using mock data:', error);
-    return orders;
-  }
-};
+    };
 
-// Inventory management
-export const getInventoryLevels = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id, name, inventory_count, in_stock'); // Updated to match your schema
+    const data = await shopifyStorefrontFetch(CHECKOUT_CREATE_MUTATION, {
+      input: checkoutInput,
+    });
 
-    if (error) throw error;
-
-    return data.reduce((acc: Record<string, number>, product: any) => {
-      acc[product.id] = product.inventory_count || 0;
-      return acc;
-    }, {});
-  } catch (error) {
-    console.warn('Error fetching inventory from Supabase, using mock data:', error);
-    return inventory;
-  }
-};
-
-export const updateInventory = async (productId: string, quantity: number) => {
-  try {
-    const { error } = await supabase
-      .from('products')
-      .update({
-        inventory_count: quantity, // Updated to match your schema
-        in_stock: quantity > 0,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', productId);
-
-    if (error) throw error;
-
-    // Update local products array
-    const index = products.findIndex(p => p.id === productId);
-    if (index !== -1) {
-      products[index].stockQuantity = quantity;
-      products[index].inStock = quantity > 0;
+    if (data.checkoutCreate.checkoutUserErrors.length > 0) {
+      throw new Error(data.checkoutCreate.checkoutUserErrors[0].message);
+>>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
     }
+
+    return {
+      checkout: data.checkoutCreate.checkout,
+      checkoutId: data.checkoutCreate.checkout.id.split('/').pop(),
+      checkoutUrl: data.checkoutCreate.checkout.webUrl,
+    };
   } catch (error) {
-    console.warn('Error updating inventory in Supabase, using mock data:', error);
-    inventory[productId] = quantity;
+<<<<<<< HEAD
+    console.error('Error updating inventory in Shopify:', error);
+=======
+    console.error('Error creating Shopify checkout:', error);
+>>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
+    throw error;
   }
 };
 
-// Admin authentication (mock for now, can be extended with Supabase Auth)
+<<<<<<< HEAD
+// Admin authentication (simplified for Shopify)
 export const authenticateAdmin = async (email: string, password: string) => {
-  // Mock admin authentication
+  // Simple admin authentication - in production, integrate with proper auth system
   if (email === 'admin@saltnsoul.com' && password === 'admin123') {
-    const token = `admin_token_${Date.now()}`;
+    const token = `shopify_admin_token_${Date.now()}`;
     localStorage.setItem('adminToken', token);
     return { success: true, token };
   }
@@ -460,5 +522,37 @@ export const authenticateAdmin = async (email: string, password: string) => {
 
 export const verifyAdminToken = async () => {
   const token = localStorage.getItem('adminToken');
-  return token && token.startsWith('admin_token_');
+  return token && token.startsWith('shopify_admin_token_');
+};
+
+// Initialize products cache
+export const initializeProducts = (defaultProducts?: Product[]) => {
+  if (defaultProducts) {
+    products = defaultProducts;
+  }
 }; 
+=======
+// Initialize products - no longer needed since we're using Shopify as source of truth
+export const initializeProducts = async (products: any[]) => {
+  // This function is now deprecated since we're using Shopify as the source of truth
+  console.log('Products are now managed in Shopify. Please add products through your Shopify admin or the admin panel.');
+};
+
+// Process order - this will be handled by Shopify's checkout
+export const processOrder = async (orderData: any) => {
+  // Orders are now processed through Shopify's checkout
+  // This function is kept for compatibility but orders are created automatically by Shopify
+  console.log('Orders are now processed through Shopify checkout');
+  return orderData;
+};
+
+// Create payment intent - no longer needed with Shopify checkout
+export const createPaymentIntent = async (amount: number) => {
+  // Payment intents are now handled by Shopify
+  console.log('Payment processing is now handled by Shopify');
+  return {
+    clientSecret: 'shopify_handled',
+    id: `shopify_${Date.now()}`,
+  };
+};
+>>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a

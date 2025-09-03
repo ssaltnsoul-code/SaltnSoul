@@ -42,159 +42,30 @@ import {
   User
 } from 'lucide-react';
 
-interface Order {
-  id: string;
-  customer: {
-    name: string;
-    email: string;
-    address: {
-      line1: string;
-      city: string;
-      state: string;
-      zipCode: string;
-      country: string;
-    };
-  };
-  items: {
-    product: {
-      name: string;
-      image: string;
-      price: number;
-    };
-    quantity: number;
-    size: string;
-    color: string;
-  }[];
-  total: number;
-  subtotal: number;
-  tax: number;
-  shipping: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  paymentStatus: 'pending' | 'paid' | 'failed' | 'refunded';
-  orderDate: string;
-  shippingMethod: string;
-}
+import { getAllOrders } from '@/lib/api';
 
 export default function AdminOrders() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [isOrderDetailOpen, setIsOrderDetailOpen] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock orders data - in production, this would come from your API
-  const [orders] = useState<Order[]>([
-    {
-      id: 'ORD-001',
-      customer: {
-        name: 'Sarah Johnson',
-        email: 'sarah.johnson@email.com',
-        address: {
-          line1: '123 Main Street',
-          city: 'New York',
-          state: 'NY',
-          zipCode: '10001',
-          country: 'US'
-        }
-      },
-      items: [
-        {
-          product: {
-            name: 'Flow High-Waist Leggings',
-            image: '/assets/product-leggings.jpg',
-            price: 98
-          },
-          quantity: 1,
-          size: 'M',
-          color: 'Rose Pink'
-        },
-        {
-          product: {
-            name: 'Bloom Sports Bra',
-            image: '/assets/product-sports-bra.jpg',
-            price: 68
-          },
-          quantity: 1,
-          size: 'M',
-          color: 'Rose Pink'
-        }
-      ],
-      subtotal: 166,
-      tax: 13.28,
-      shipping: 0,
-      total: 179.28,
-      status: 'processing',
-      paymentStatus: 'paid',
-      orderDate: '2024-01-15T10:30:00Z',
-      shippingMethod: 'standard'
-    },
-    {
-      id: 'ORD-002',
-      customer: {
-        name: 'Mike Chen',
-        email: 'mike.chen@email.com',
-        address: {
-          line1: '456 Oak Avenue',
-          city: 'Los Angeles',
-          state: 'CA',
-          zipCode: '90210',
-          country: 'US'
-        }
-      },
-      items: [
-        {
-          product: {
-            name: 'Soul Cropped Tank',
-            image: '/assets/product-tank-top.jpg',
-            price: 52
-          },
-          quantity: 2,
-          size: 'L',
-          color: 'White'
-        }
-      ],
-      subtotal: 104,
-      tax: 8.32,
-      shipping: 15,
-      total: 127.32,
-      status: 'shipped',
-      paymentStatus: 'paid',
-      orderDate: '2024-01-14T15:45:00Z',
-      shippingMethod: 'express'
-    },
-    {
-      id: 'ORD-003',
-      customer: {
-        name: 'Emily Davis',
-        email: 'emily.davis@email.com',
-        address: {
-          line1: '789 Pine Street',
-          city: 'Chicago',
-          state: 'IL',
-          zipCode: '60601',
-          country: 'US'
-        }
-      },
-      items: [
-        {
-          product: {
-            name: 'Zen Yoga Set',
-            image: '/assets/product-sports-bra.jpg',
-            price: 148
-          },
-          quantity: 1,
-          size: 'S',
-          color: 'Sage Green'
-        }
-      ],
-      subtotal: 148,
-      tax: 11.84,
-      shipping: 0,
-      total: 159.84,
-      status: 'delivered',
-      paymentStatus: 'paid',
-      orderDate: '2024-01-12T09:20:00Z',
-      shippingMethod: 'standard'
-    }
-  ]);
+  // Load orders from Shopify
+  useEffect(() => {
+    const loadOrders = async () => {
+      try {
+        const ordersData = await getAllOrders();
+        setOrders(ordersData);
+      } catch (error) {
+        console.error('Error loading orders:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadOrders();
+  }, []);
 
   const filteredOrders = orders.filter(order =>
     order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -251,7 +122,7 @@ export default function AdminOrders() {
     }
   };
 
-  const handleViewOrder = (order: Order) => {
+  const handleViewOrder = (order: any) => {
     setSelectedOrder(order);
     setIsOrderDetailOpen(true);
   };
@@ -273,6 +144,16 @@ export default function AdminOrders() {
     shipped: orders.filter(o => o.status === 'shipped').length,
     delivered: orders.filter(o => o.status === 'delivered').length,
   };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout>

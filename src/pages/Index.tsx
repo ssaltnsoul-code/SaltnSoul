@@ -7,9 +7,9 @@ import { SearchAndFilter } from '@/components/SearchAndFilter';
 import { CartDrawer } from '@/components/CartDrawer';
 import { Footer } from '@/components/Footer';
 import { useCart } from '@/hooks/useCart';
-import { products as initialProducts } from '@/data/products';
+// Remove import of initialProducts - we'll fetch from Shopify
 import { Product } from '@/types/product';
-import { getAllProducts, initializeProducts } from '@/lib/api';
+import { getAllProducts } from '@/lib/api';
 
 const Index = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -18,26 +18,41 @@ const Index = () => {
   const [loading, setLoading] = useState(true);
   const { items, addItem, removeItem, updateQuantity, total, itemCount } = useCart();
 
-  // Load products on component mount
+  // Load products from Shopify on component mount
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        // Initialize products with default data if needed
-        initializeProducts(initialProducts);
         const productsData = await getAllProducts();
         setProducts(productsData);
         setFilteredProducts(productsData);
       } catch (error) {
+<<<<<<< HEAD
+        console.error('Error loading products from Shopify:', error);
+        // Set empty array if Shopify fails
+=======
         console.error('Error loading products:', error);
-        // Fallback to initial products if API fails
-        setProducts(initialProducts);
-        setFilteredProducts(initialProducts);
+        // Fallback to empty array if Shopify API fails
+>>>>>>> 4b0fd3b1355cb544399d9390223c6c502f17958a
+        setProducts([]);
+        setFilteredProducts([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadProducts();
+
+    // Refresh products every 30 seconds to catch admin updates
+    const interval = setInterval(() => {
+      getAllProducts().then(productsData => {
+        if (productsData && productsData.length > 0) {
+          setProducts(productsData);
+          setFilteredProducts(productsData);
+        }
+      }).catch(console.error);
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   return (
@@ -61,10 +76,10 @@ const Index = () => {
                 products={products}
                 onFilterChange={setFilteredProducts}
               />
-              <ProductGrid 
+        <ProductGrid 
                 products={filteredProducts}
-                onAddToCart={addItem}
-              />
+          onAddToCart={addItem}
+        />
             </>
           )}
         </div>

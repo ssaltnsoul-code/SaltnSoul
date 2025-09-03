@@ -8,7 +8,7 @@ import { Minus, Plus, ArrowLeft, Star } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
 import { products as initialProducts } from '@/data/products';
 import { useToast } from '@/hooks/use-toast';
-import { getAllProducts, initializeProducts } from '@/lib/api';
+import { getAllProducts } from '@/lib/api';
 import { Product } from '@/types/product';
 
 export default function ProductDetail() {
@@ -27,14 +27,12 @@ export default function ProductDetail() {
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        // Initialize products with default data if needed
-        initializeProducts(initialProducts);
         const productsData = await getAllProducts();
         setProducts(productsData);
       } catch (error) {
         console.error('Error loading products:', error);
-        // Fallback to initial products if API fails
-        setProducts(initialProducts);
+        // Fallback to empty array if Shopify API fails
+        setProducts([]);
       } finally {
         setLoading(false);
       }

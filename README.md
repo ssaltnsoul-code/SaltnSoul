@@ -1,146 +1,80 @@
-# SaltnSoul - E-commerce Platform
+# Salt & Soul - Premium Activewear Store
 
-A modern, production-ready e-commerce platform built with React, TypeScript, and integrated with Supabase and Stripe.
+A modern e-commerce platform for premium activewear, built with React, TypeScript, Shopify, and Stripe.
 
-## 🚀 Features
+## Features
 
-- **Real-time Product Management** - Full CRUD operations with Supabase
-- **Secure Payment Processing** - Stripe integration with live payment processing
-- **Admin Dashboard** - Complete inventory and order management
-- **Mobile-Responsive Design** - Optimized for all devices
-- **Search & Filtering** - Advanced product discovery
-- **Cart Persistence** - Global cart state management
-- **Order Tracking** - Complete order lifecycle management
+- **Product Catalog** - Browse premium activewear collections via Shopify
+- **Shopping Cart** - Add items with size/color selection
+- **Secure Checkout** - Stripe payment processing
+- **Admin Dashboard** - Manage products and orders through Shopify Admin API
+- **Real-time Inventory** - Live stock tracking via Shopify
+- **Mobile Responsive** - Optimized for all devices
 
-## 🛠 Tech Stack
+## Tech Stack
 
-- **Frontend**: React 18, TypeScript, Vite
-- **UI Components**: shadcn/ui, Tailwind CSS
-- **Backend**: Supabase (Database, Auth, Real-time)
-- **Payments**: Stripe Payment Intents
-- **Hosting**: Netlify (with serverless functions)
-- **State Management**: React Context API
+- React 18 + TypeScript
+- Shopify (Products + Orders + Inventory)
+- Stripe (Payments)
+- Tailwind CSS + shadcn/ui
+- Vite + Netlify
 
-## 📦 Installation
+## Setup
 
-```bash
-# Clone the repository
-git clone https://github.com/ssaltnsoul-code/SaltnSoul.git
+### 1. Shopify Configuration
 
-# Navigate to project directory
-cd SaltnSoul
+1. Create a Shopify store or use an existing one
+2. Generate API credentials:
+   - Go to your Shopify Admin → Apps → Develop apps
+   - Create a private app with the following permissions:
+     - Products: Read and write
+     - Orders: Read and write
+     - Customers: Read and write
+     - Inventory: Read and write
+3. Also create a Storefront API access token for frontend operations
 
-# Install dependencies
-npm install
+### 2. Environment Variables
 
-# Set up environment variables
-cp .env.example .env
-# Edit .env with your Supabase and Stripe credentials
-
-# Start development server
-npm run dev
-```
-
-## 🔧 Environment Variables
-
-Create a `.env` file with the following variables:
+Update your `.env` file with your Shopify credentials:
 
 ```env
-# Supabase Configuration
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+# Shopify Configuration
+VITE_SHOPIFY_STORE_DOMAIN=your-store.myshopify.com
+VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN=your_storefront_access_token
+SHOPIFY_API_KEY=ee1e72e9e11800c5517f2a086053a24c
+SHOPIFY_API_SECRET=b716682fec4f635ac37ce072214de29b
+SHOPIFY_ACCESS_TOKEN=your_shopify_access_token
 
 # Stripe Configuration
-VITE_STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key
 
 # App Configuration
 VITE_APP_NAME=SaltnSoul
-VITE_APP_URL=http://localhost:8080
+VITE_APP_URL=http://localhost:5173
 ```
 
-## 🗄 Database Setup
+### 3. Install and Run
 
-1. Create a Supabase project
-2. Run the SQL schema from `supabase-schema.sql`
-3. Update environment variables with your Supabase credentials
-
-## 💳 Payment Setup
-
-1. Create a Stripe account
-2. Get your API keys from the Stripe dashboard
-3. Update environment variables with your Stripe credentials
-
-## 🚀 Deployment
-
-### Netlify Deployment
-
-1. Connect your GitHub repository to Netlify
-2. Set environment variables in Netlify dashboard
-3. Deploy with build command: `npm run build`
-4. Set publish directory: `dist`
-
-### Environment Variables for Production
-
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_STRIPE_PUBLISHABLE_KEY=pk_live_your_stripe_key
-STRIPE_SECRET_KEY=sk_live_your_stripe_secret
+```bash
+npm install
+npm run dev
 ```
 
-## 📱 Usage
+## Admin Access
 
-### Customer Features
-- Browse products with search and filtering
-- Add items to cart with size/color selection
-- Secure checkout with Stripe payments
-- Order confirmation and tracking
+Visit `/admin` with credentials:
+- Email: `admin@saltnsoul.com`
+- Password: `admin123`
 
-### Admin Features
-- Product management (CRUD operations)
-- Inventory tracking and updates
-- Order management and status tracking
-- Sales analytics and reporting
+## Shopify Integration
 
-**Admin Login**: `admin@saltnsoul.com` / `admin123`
+- Products are fetched from your Shopify store
+- Orders are created in Shopify when customers complete checkout
+- Inventory levels are managed through Shopify
+- Admin panel connects to Shopify Admin API for management
 
-## 🏗 Project Structure
+## Development Notes
 
-```
-src/
-├── components/          # Reusable UI components
-├── pages/              # Page components
-├── contexts/           # React context providers
-├── hooks/              # Custom React hooks
-├── lib/                # API and utility functions
-├── types/              # TypeScript type definitions
-└── assets/             # Static assets
-```
-
-## 📄 Documentation
-
-- [Deployment Guide](DEPLOYMENT_GUIDE.md)
-- [Production Status](PRODUCTION_STATUS.md)
-- [Integration Status](INTEGRATION_STATUS.md)
-- [Admin Guide](ADMIN_GUIDE.md)
-
-## 💰 Costs
-
-- **Netlify**: $0/month (free tier)
-- **Supabase**: $0/month (free tier)
-- **Stripe**: 2.9% + 30¢ per transaction
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
-
-**Built with ❤️ for modern e-commerce**
+- The app falls back to mock data if Shopify API is unavailable
+- Webhook endpoint available at `/api/shopify-webhook` for real-time updates
+- All payments are processed through Stripe before orders are created in Shopify

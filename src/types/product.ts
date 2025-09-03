@@ -11,6 +11,22 @@ export interface Product {
   inStock: boolean;
   featured?: boolean;
   stockQuantity?: number;
+  // Shopify-specific fields
+  handle?: string;
+  shopifyId?: string;
+  variants?: ProductVariant[];
+}
+
+export interface ProductVariant {
+  id: string;
+  title: string;
+  price: number;
+  compareAtPrice?: number;
+  availableForSale: boolean;
+  selectedOptions: {
+    name: string;
+    value: string;
+  }[];
 }
 
 export interface CartItem {
@@ -18,6 +34,8 @@ export interface CartItem {
   quantity: number;
   size: string;
   color: string;
+  // Shopify-specific fields
+  variantId?: string;
 }
 
 export interface CartState {
