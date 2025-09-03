@@ -8,6 +8,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
+import Collection from "./pages/Collection";
 import ProductDetail from "./pages/ProductDetail";
 import Checkout from "./pages/Checkout";
 import OrderConfirmation from "./pages/OrderConfirmation";
@@ -36,6 +37,7 @@ const App = () => (
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Index />} />
+            <Route path="/collections/:handle" element={<Collection />} />
             <Route path="/product/:productId" element={<ProductDetail />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/order-confirmation" element={<OrderConfirmation />} />

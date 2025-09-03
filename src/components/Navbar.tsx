@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ShoppingBag, Menu, X, Search, Heart, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getAllCollections } from '@/lib/api';
 
 interface NavbarProps {
   cartItemCount: number;
@@ -10,14 +11,42 @@ interface NavbarProps {
 
 export function Navbar({ cartItemCount, onCartOpen }: NavbarProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [collections, setCollections] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const navItems = [
+  // Load collections from Shopify for navigation
+  useEffect(() => {
+    const loadCollections = async () => {
+      try {
+        const collectionsData = await getAllCollections();
+        setCollections(collectionsData.slice(0, 5)); // Limit to 5 main collections for nav
+      } catch (error) {
+        console.error('Error loading collections for nav:', error);
+        // Fallback to default nav items
+        setCollections([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCollections();
+  }, []);
+
+  // Default nav items as fallback
+  const defaultNavItems = [
     { name: 'New Arrivals', href: '#' },
     { name: 'Tops', href: '#' },
     { name: 'Bottoms', href: '#' },
     { name: 'Sets', href: '#' },
     { name: 'Accessories', href: '#' },
   ];
+
+  const navItems = collections.length > 0 
+    ? collections.map(collection => ({
+        name: collection.title,
+        href: `/collections/${collection.handle}`,
+      }))
+    : defaultNavItems;
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white/90 backdrop-blur-md border-b border-border/50">

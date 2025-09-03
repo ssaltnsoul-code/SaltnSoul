@@ -12,8 +12,19 @@ export const initializeCart = async () => {
   return cart;
 };
 
-// Product cache
+// Product and collection cache
 let products: Product[] = [];
+let collections: any[] = [];
+
+// Collection interface
+interface ShopifyCollection {
+  id: string;
+  handle: string;
+  title: string;
+  description: string;
+  image?: string;
+  products: Product[];
+}
 
 // Helper function to transform Shopify product to our Product type
 const transformShopifyProduct = (shopifyProduct: any): Product | null => {
@@ -457,6 +468,61 @@ export const getAllCustomers = async () => {
     }));
   } catch (error) {
     console.error('Error fetching customers from Shopify:', error);
+    return [];
+  }
+};
+
+// Get all collections from Shopify
+export const getAllCollections = async () => {
+  try {
+    console.log('🔄 Fetching collections from Shopify...');
+    const shopifyCollections = await shopifyClient.collection.fetchAllWithProducts();
+    console.log('✅ Collections loaded successfully:', shopifyCollections.length);
+    
+    const transformedCollections = shopifyCollections.map((collection: any) => ({
+      id: collection.id,
+      handle: collection.handle,
+      title: collection.title,
+      description: collection.description || '',
+      image: collection.image?.src || '',
+      products: collection.products?.map(transformShopifyProduct).filter((p: Product | null) => p !== null) || []
+    }));
+    
+    collections = transformedCollections;
+    return transformedCollections;
+  } catch (error) {
+    console.error('Error fetching collections from Shopify:', error);
+    return [];
+  }
+};
+
+// Get single collection by handle
+export const getCollectionByHandle = async (handle: string) => {
+  try {
+    const collection = await shopifyClient.collection.fetchByHandle(handle);
+    if (!collection) return null;
+    
+    return {
+      id: collection.id,
+      handle: collection.handle,
+      title: collection.title,
+      description: collection.description || '',
+      image: collection.image?.src || '',
+      products: collection.products?.map(transformShopifyProduct).filter((p: Product | null) => p !== null) || []
+    };
+  } catch (error) {
+    console.error('Error fetching collection:', error);
+    return null;
+  }
+};
+
+// Get products by collection
+export const getProductsByCollection = async (collectionHandle: string): Promise<Product[]> => {
+  try {
+    const collection = await getCollectionByHandle(collectionHandle);
+    return collection?.products || [];
+  } catch (error) {
+    console.error('Error fetching products by collection:', error);
     return [];
   }
 };
