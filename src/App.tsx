@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { CollectionProvider } from "@/contexts/CollectionContext";
 import { AdminProtectedRoute } from "@/components/AdminProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Index from "./pages/Index";
@@ -21,6 +22,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminProducts from "./pages/AdminProducts";
 import AdminOrders from "./pages/AdminOrders";
 import AdminCustomers from "./pages/AdminCustomers";
+import AdminCollections from "./pages/AdminCollections";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +33,7 @@ const App = () => (
       <TooltipProvider>
         <AdminProvider>
           <CartProvider>
+            <CollectionProvider>
           <Toaster />
           <Sonner />
           <BrowserRouter>
@@ -77,6 +80,14 @@ const App = () => (
               element={
                 <AdminProtectedRoute>
                   <AdminCustomers />
+            <Route 
+              path="/admin/collections" 
+              element={
+                <AdminProtectedRoute>
+                  <AdminCollections />
+                </AdminProtectedRoute>
+              } 
+            />
                 </AdminProtectedRoute>
               } 
             />
@@ -85,6 +96,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </BrowserRouter>
+            </CollectionProvider>
           </CartProvider>
         </AdminProvider>
       </TooltipProvider>

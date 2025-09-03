@@ -246,6 +246,71 @@ export const getProduct = async (handleOrId: string): Promise<Product | null> =>
   }
 };
 
+// Get Shopify collections with products
+export const getShopifyCollections = async () => {
+  try {
+    console.log('Fetching collections from Shopify...');
+    
+    // Get collections via Admin API
+    const collectionsResponse = await makeAdminAPIRequest('collections.json?limit=250');
+    const shopifyCollections = collectionsResponse.collections;
+    
+    if (!shopifyCollections || shopifyCollections.length === 0) {
+      console.warn('No collections found in Shopify');
+      return [];
+    }
+    
+    // Transform collections and get their products
+    const collections = await Promise.all(
+      shopifyCollections.map(async (collection: any) => {
+        try {
+          // Get products for this collection
+          const productsResponse = await makeAdminAPIRequest(
+            `collections/${collection.id}/products.json?limit=250`
+          );
+          
+          const collectionProducts = productsResponse.products || [];
+          const transformedProducts = collectionProducts
+            .map(transformShopifyProduct)
+            .filter((p: Product | null) => p !== null);
+          
+          return {
+            id: collection.id.toString(),
+            handle: collection.handle,
+            title: collection.title,
+            description: collection.body_html || collection.description || '',
+            image: collection.image ? {
+              url: collection.image.src || collection.image.url,
+              alt: collection.image.alt
+            } : undefined,
+            products: transformedProducts,
+            productsCount: transformedProducts.length
+          };
+        } catch (error) {
+          console.error(`Error fetching products for collection ${collection.id}:`, error);
+          return {
+            id: collection.id.toString(),
+            handle: collection.handle,
+            title: collection.title,
+            description: collection.body_html || collection.description || '',
+            image: collection.image ? {
+              url: collection.image.src || collection.image.url,
+              alt: collection.image.alt
+            } : undefined,
+            products: [],
+            productsCount: 0
+          };
+        }
+      })
+    );
+    
+    console.log('✅ Collections loaded successfully:', collections.length, 'collections');
+    return collections;
+  } catch (error) {
+    console.error('Error fetching collections from Shopify:', error);
+    return [];
+  }
+};
 // Cart operations using Shopify Storefront API
 export const addToCart = async (variantId: string, quantity: number = 1) => {
   try {

@@ -1,56 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { HeroSection } from '@/components/HeroSection';
-import { ProductGrid } from '@/components/ProductGrid';
 import { FeaturedSection } from '@/components/FeaturedSection';
-import { SearchAndFilter } from '@/components/SearchAndFilter';
+import { SectionDisplay } from '@/components/SectionDisplay';
 import { CartDrawer } from '@/components/CartDrawer';
 import { Footer } from '@/components/Footer';
 import { useCart } from '@/hooks/useCart';
-import { Product } from '@/types/product';
-import { getAllProducts } from '@/lib/api';
+import { useCollections } from '@/contexts/CollectionContext';
 
 const Index = () => {
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { items, addItem, removeItem, updateQuantity, total, itemCount } = useCart();
+  const { items, removeItem, updateQuantity, total, itemCount } = useCart();
+  const { isLoading } = useCollections();
 
-  // Load products from Shopify on component mount
-  useEffect(() => {
-    const loadProducts = async () => {
-      try {
-        console.log('🔄 Loading products from Shopify...');
-        const productsData = await getAllProducts();
-        console.log('✅ Products loaded successfully:', productsData.length, 'products');
-        setProducts(productsData);
-        setFilteredProducts(productsData);
-      } catch (error) {
-        console.error('❌ Error loading products from Shopify:', error);
-        // Set empty array if Shopify fails
-        setProducts([]);
-        setFilteredProducts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadProducts();
-
-    // Refresh products every 30 seconds to catch admin updates
-    const interval = setInterval(() => {
-      getAllProducts().then(productsData => {
-        if (productsData && productsData.length > 0) {
-          console.log('🔄 Refreshed products:', productsData.length);
-          setProducts(productsData);
-          setFilteredProducts(productsData);
-        }
-      }).catch(console.error);
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg text-muted-foreground">Loading your Shopify products...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -61,26 +33,68 @@ const Index = () => {
       
       <main>
         <HeroSection />
+        
+        {/* Hero Products Section - Admin configurable */}
+        <SectionDisplay
+          sectionId="hero"
+          title="Featured Products"
+          description="Discover our most popular pieces, loved by athletes everywhere"
+          maxProducts={4}
+          productsPerRow={4}
+          showViewAll={true}
+          viewAllLink="/collections/featured"
+          className="bg-white"
+        />
+        
         <FeaturedSection />
-        <div className="container mx-auto px-4 py-8">
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              <span className="ml-4 text-lg">Loading your Shopify products...</span>
-            </div>
-          ) : (
-            <>
-              <SearchAndFilter 
-                products={products}
-                onFilterChange={setFilteredProducts}
-              />
-              <ProductGrid 
-                products={filteredProducts}
-                onAddToCart={addItem}
-              />
-            </>
-          )}
-        </div>
+        
+        {/* New Arrivals Section - Admin configurable */}
+        <SectionDisplay
+          sectionId="new-arrivals"
+          title="New Arrivals"
+          description="Fresh styles just dropped. Be the first to wear our latest designs"
+          maxProducts={8}
+          productsPerRow={4}
+          showViewAll={true}
+          viewAllLink="/collections/new-arrivals"
+          className="bg-neutral-50"
+        />
+        
+        {/* Best Sellers Section - Admin configurable */}
+        <SectionDisplay
+          sectionId="bestsellers"
+          title="Best Sellers"
+          description="Our customers' favorites - see what everyone's talking about"
+          maxProducts={6}
+          productsPerRow={3}
+          showViewAll={true}
+          viewAllLink="/collections/bestsellers"
+          className="bg-white"
+        />
+        
+        {/* Women's Collection Section - Admin configurable */}
+        <SectionDisplay
+          sectionId="women-collection"
+          title="Women's Collection"
+          description="Empowering activewear designed for strength, style, and comfort"
+          maxProducts={8}
+          productsPerRow={4}
+          showViewAll={true}
+          viewAllLink="/collections/women"
+          className="bg-rose-50"
+        />
+        
+        {/* Men's Collection Section - Admin configurable */}
+        <SectionDisplay
+          sectionId="men-collection"
+          title="Men's Collection"
+          description="Performance gear built for every workout, every day"
+          maxProducts={8}
+          productsPerRow={4}
+          showViewAll={true}
+          viewAllLink="/collections/men"
+          className="bg-blue-50"
+        />
       </main>
 
       <Footer />

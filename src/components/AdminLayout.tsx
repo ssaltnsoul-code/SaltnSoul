@@ -26,6 +26,7 @@ import {
   Store,
   Bell,
   ChevronDown
+  Palette,
 } from 'lucide-react';
 
 interface AdminLayoutProps {
@@ -57,6 +58,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       href: '/admin/products',
       icon: Package,
       badge: 0, // Will be updated with actual product count
+    },
+    {
+      name: 'Collections',
+      href: '/admin/collections',
+      icon: Palette,
     },
     {
       name: 'Orders',
