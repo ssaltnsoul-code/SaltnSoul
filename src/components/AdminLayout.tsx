@@ -25,7 +25,7 @@ import {
   X,
   Store,
   Bell,
-  ChevronDown
+  ChevronDown,
   Palette,
 } from 'lucide-react';
 
