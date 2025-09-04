@@ -119,26 +119,51 @@ const transformShopifyProduct = (shopifyProduct: any): Product | null => {
 // Fetch all products from Shopify with enhanced error handling
 export const getAllProducts = async (): Promise<Product[]> => {
   try {
-    console.log("🔄 Fetching products via Admin API...");
+    console.log('Fetching products from Shopify...');
+    console.log('Shopify client config:', {
+      domain: import.meta.env.VITE_SHOPIFY_STORE_URL,
+      hasToken: !!import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN
+    });
     
-    const response = await fetch("/.netlify/functions/shopify-products");
-    const adminData = await response.json();
-    console.log("Admin API response:", adminData);
+    const shopifyProducts = await shopifyClient.product.fetchAll();
+    console.log('Raw Shopify products:', shopifyProducts);
+    console.log('Product count:', shopifyProducts?.length);
     
-    if (adminData.products && adminData.products.length > 0) {
-      const transformedProducts = adminData.products.map(transformShopifyProduct).filter((p): p is Product => p !== null);
-      console.log("✅ Products loaded via Admin API:", transformedProducts.length, "products");
-      products = transformedProducts;
-      return transformedProducts;
+    if (!shopifyProducts || shopifyProducts.length === 0) {
+      console.warn('No products returned from Shopify Storefront API');
+      
+      // Fallback: Try to get products via our Netlify function (Admin API)
+      console.log('Trying fallback via Admin API...');
+      try {
+        const response = await fetch('/.netlify/functions/shopify-products');
+        const adminData = await response.json();
+        console.log('Admin API response:', adminData);
+        
+        if (adminData.products && adminData.products.length > 0) {
+          const transformedProducts = adminData.products.map(transformShopifyProduct).filter((p): p is Product => p !== null);
+          console.log('✅ Products loaded via Admin API:', transformedProducts.length, 'products');
+          products = transformedProducts;
+          return transformedProducts;
+        }
+      } catch (adminError) {
+        console.error('Admin API fallback failed:', adminError);
+      }
+      
+      return [];
     }
     
-    console.warn("No products returned from Admin API");
-    return [];
+    const transformedProducts = shopifyProducts.map(transformShopifyProduct).filter((p): p is Product => p !== null);
+    console.log('✅ Products loaded successfully:', transformedProducts.length, 'products');
+    products = transformedProducts;
+    
+    return transformedProducts;
   } catch (error) {
-    console.error("Error fetching products from Admin API:", error);
+    console.error('Error fetching products from Shopify:', error);
+    // Return empty array instead of cached products to make the issue obvious
     return [];
   }
 };
+
 // Create product via Shopify Admin API
 export const createProduct = async (productData: Omit<Product, 'id'>): Promise<Product> => {
   try {
