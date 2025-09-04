@@ -17,6 +17,17 @@ const handler: Handler = async (event) => {
     const method = event.httpMethod;
     const body = event.body ? JSON.parse(event.body) : undefined;
 
+    if (method === 'GET') {
+      const res = await fetch(`https://${domain}/admin/api/${ADMIN_API}/products.json?limit=250`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': adminToken,
+        },
+      });
+      const text = await res.text();
+      return { statusCode: res.status, body: text };
+    }
+
     if (method === 'POST') {
       const res = await fetch(`https://${domain}/admin/api/${ADMIN_API}/products.json`, {
         method: 'POST',

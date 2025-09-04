@@ -43,12 +43,34 @@ export function CartProvider({ children }: CartProviderProps) {
 
   const addItem = (product: Product, size: string, color: string, quantity: number = 1) => {
     // Find matching variant based on size and color
-    const variant = product.variants?.find(v => 
-      v.selectedOptions.some(opt => 
-        (opt.name.toLowerCase().includes('size') && opt.value === size) ||
-        (opt.name.toLowerCase().includes('color') && opt.value === color)
-      )
-    );
+    const variant = product.variants?.find(v => {
+      if (!v.selectedOptions || v.selectedOptions.length === 0) {
+        return true; // If no options, use this variant
+      }
+      
+      return v.selectedOptions.some(opt => {
+        const optName = opt.name.toLowerCase();
+        const optValue = opt.value.toLowerCase();
+        
+        return (
+          (optName.includes('size') && optValue === size.toLowerCase()) ||
+          (optName.includes('color') && optValue === color.toLowerCase()) ||
+          (optName.includes('colour') && optValue === color.toLowerCase())
+        );
+      });
+    }) || product.variants?.[0]; // Fallback to first variant
+
+    console.log('Adding to cart:', {
+      product: product.name,
+      size,
+      color,
+      variant: variant?.id,
+      availableVariants: product.variants?.map(v => ({
+        id: v.id,
+        title: v.title,
+        options: v.selectedOptions
+      }))
+    });
 
     setItems(prevItems => {
       const existingItem = prevItems.find(
@@ -76,7 +98,7 @@ export function CartProvider({ children }: CartProviderProps) {
           quantity, 
           size, 
           color,
-          variantId: variant?.id 
+          variantId: variant?.id || product.variants?.[0]?.id
         }];
       }
     });

@@ -1,72 +1,61 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useCart } from '@/hooks/useCart';
-import { ArrowLeft, ExternalLink, Truck, Shield } from 'lucide-react';
-import { initializeCart, addToCart, getCart } from '@/lib/api';
+import { ArrowLeft, ExternalLink, Truck, Shield, Loader2 } from 'lucide-react';
+import { shopifyClient } from '@/lib/shopify';
 import { useToast } from '@/hooks/use-toast';
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { items, total, itemCount } = useCart();
+  const { items, total, itemCount, clearCart } = useCart();
   const { toast } = useToast();
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    firstName: '',
-    lastName: '',
-    address: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: 'US',
-    shippingMethod: 'standard',
-  });
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const shippingCosts = {
-    standard: 0,
-    express: 15,
-    overnight: 25
-  };
-
-  const shippingCost = shippingCosts[formData.shippingMethod as keyof typeof shippingCosts];
-  const tax = total * 0.08; // 8% tax rate
-  const finalTotal = total + shippingCost + tax;
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // Create Shopify checkout on component mount
   useEffect(() => {
-    const createCheckout = async () => {
+    const createShopifyCheckout = async () => {
       if (items.length === 0) return;
       
       setLoading(true);
       try {
-        // Initialize cart and add items
-        const cart = await initializeCart();
+        console.log('Creating Shopify checkout with items:', items);
         
-        // Add each cart item to Shopify checkout
-        for (const item of items) {
-          // Find variant ID - for now we'll use a placeholder
-          // In a real implementation, you'd need to map your products to Shopify variants
-          const variantId = item.variantId || item.product.variants?.[0]?.id;
-          if (variantId) {
-            await addToCart(variantId, item.quantity);
-          }
+        // Create checkout using Shopify Buy SDK
+        const checkout = await shopifyClient.checkout.create();
+        console.log('Created checkout:', checkout);
+        
+        // Transform cart items to Shopify line items
+        const lineItems = items.map(item => {
+          // Use the variant ID from the cart item, or fallback to first variant
+          const variantId = item.variantId || item.product.variants?.[0]?.id || item.product.shopifyId;
+          
+          return {
+            variantId: variantId,
+            quantity: item.quantity,
+          };
+        }).filter(lineItem => lineItem.variantId); // Only include items with valid variant IDs
+
+        console.log('Line items to add:', lineItems);
+
+        if (lineItems.length === 0) {
+          throw new Error('No valid product variants found');
         }
         
-        const updatedCart = await getCart();
-        setCheckoutUrl(updatedCart.webUrl);
+        // Add line items to checkout
+        const updatedCheckout = await shopifyClient.checkout.addLineItems(checkout.id, lineItems);
+        console.log('Updated checkout with items:', updatedCheckout);
+        
+        setCheckoutUrl(updatedCheckout.webUrl);
+        
+        toast({
+          title: 'Checkout Ready',
+          description: 'Your secure checkout is ready to complete.',
+        });
       } catch (error) {
         console.error('Error creating Shopify checkout:', error);
         toast({
@@ -79,12 +68,14 @@ export default function Checkout() {
       }
     };
 
-    createCheckout();
+    createShopifyCheckout();
   }, [items, toast]);
 
   const handleShopifyCheckout = () => {
     if (checkoutUrl) {
-      window.open(checkoutUrl, '_blank');
+      setIsCheckingOut(true);
+      // Open checkout in same window for embedded experience
+      window.location.href = checkoutUrl;
     }
   };
 
@@ -122,190 +113,91 @@ export default function Checkout() {
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12">
-          {/* Checkout Form */}
+          {/* Checkout Information */}
           <div className="space-y-8">
-            {/* Contact Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
-                  Contact Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="email">Email *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                    placeholder="john@example.com"
-                    required
-                  />
-                  <p className="text-sm text-muted-foreground mt-1">
-                    We'll send your order confirmation here
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Shipping Address */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Truck className="h-5 w-5" />
-                  Shipping Address
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <Input
-                      id="firstName"
-                      value={formData.firstName}
-                      onChange={(e) => handleInputChange('firstName', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input
-                      id="lastName"
-                      value={formData.lastName}
-                      onChange={(e) => handleInputChange('lastName', e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="address">Address *</Label>
-                  <Input
-                    id="address"
-                    value={formData.address}
-                    onChange={(e) => handleInputChange('address', e.target.value)}
-                    placeholder="123 Main Street"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="city">City *</Label>
-                    <Input
-                      id="city"
-                      value={formData.city}
-                      onChange={(e) => handleInputChange('city', e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="state">State *</Label>
-                    <Input
-                      id="state"
-                      value={formData.state}
-                      onChange={(e) => handleInputChange('state', e.target.value)}
-                      placeholder="CA"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="zipCode">ZIP Code *</Label>
-                    <Input
-                      id="zipCode"
-                      value={formData.zipCode}
-                      onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                      placeholder="12345"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="country">Country *</Label>
-                    <Input
-                      id="country"
-                      value={formData.country}
-                      onChange={(e) => handleInputChange('country', e.target.value)}
-                      disabled
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Shipping Method */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Shipping Method</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {Object.entries(shippingCosts).map(([method, cost]) => (
-                  <label key={method} className="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <input
-                        type="radio"
-                        name="shippingMethod"
-                        value={method}
-                        checked={formData.shippingMethod === method}
-                        onChange={(e) => handleInputChange('shippingMethod', e.target.value)}
-                        className="w-4 h-4 text-primary"
-                      />
-                      <div>
-                        <p className="font-medium capitalize">
-                          {method} Shipping
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {method === 'standard' ? '5-7 business days' :
-                           method === 'express' ? '2-3 business days' :
-                           '1 business day'}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="font-semibold">
-                      {cost === 0 ? 'Free' : `$${cost}`}
-                    </span>
-                  </label>
-                ))}
-              </CardContent>
-            </Card>
-
             {/* Shopify Checkout */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ExternalLink className="h-5 w-5" />
-                  Complete Purchase
+                  <Shield className="h-5 w-5" />
+                  Secure Checkout
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-muted-foreground">
-                  Complete your purchase securely through Shopify's checkout system.
-                </p>
+              <CardContent className="space-y-6">
+                <div className="text-center py-8">
+                  <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Shield className="h-10 w-10 text-primary" />
+                  </div>
+                  
+                  <h3 className="text-xl font-semibold mb-2">
+                    Ready to Complete Your Order
+                  </h3>
+                  
+                  <p className="text-muted-foreground mb-6">
+                    You'll be securely redirected to Shopify's checkout where you can:
+                  </p>
+                  
+                  <div className="space-y-2 text-sm text-left max-w-md mx-auto mb-6">
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>Enter your shipping & billing information</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>Choose your preferred payment method</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>Select shipping options</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span>Complete your secure purchase</span>
+                    </div>
+                  </div>
+                  
+                  {loading ? (
+                    <Button disabled className="w-full" size="lg">
+                      <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                      Preparing your checkout...
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={handleShopifyCheckout}
+                      disabled={!checkoutUrl || isCheckingOut}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {isCheckingOut ? (
+                        <>
+                          <Loader2 className="animate-spin h-4 w-4 mr-2" />
+                          Redirecting...
+                        </>
+                      ) : (
+                        <>
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Proceed to Secure Checkout
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
                 
-                {loading ? (
-                  <Button disabled className="w-full">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Creating checkout...
-                  </Button>
-                ) : (
-                  <Button 
-                    onClick={handleShopifyCheckout}
-                    disabled={!checkoutUrl}
-                    className="w-full"
-                    size="lg"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Complete Order - ${finalTotal.toFixed(2)}
-                  </Button>
-                )}
-                
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Shield className="h-4 w-4" />
-                  <span>Secure checkout powered by Shopify</span>
+                <div className="border-t pt-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Shield className="h-4 w-4" />
+                      <span>SSL Encrypted</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Truck className="h-4 w-4" />
+                      <span>Free Returns</span>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center text-xs text-muted-foreground mt-4">
+                    Secure checkout powered by Shopify
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -351,19 +243,22 @@ export default function Checkout() {
                     <span>Subtotal</span>
                     <span>${total.toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Shipping</span>
-                    <span>{shippingCost === 0 ? 'Free' : `$${shippingCost.toFixed(2)}`}</span>
+                    <span>Calculated at checkout</span>
                   </div>
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Tax</span>
-                    <span>${tax.toFixed(2)}</span>
+                    <span>Calculated at checkout</span>
                   </div>
                   <Separator />
                   <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span>
-                    <span>${finalTotal.toFixed(2)}</span>
+                    <span>Subtotal</span>
+                    <span>${total.toFixed(2)}</span>
                   </div>
+                  <p className="text-xs text-muted-foreground">
+                    Final total including shipping and tax will be calculated at checkout
+                  </p>
                 </div>
 
                 {/* Trust Badges */}

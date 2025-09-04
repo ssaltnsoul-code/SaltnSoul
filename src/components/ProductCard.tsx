@@ -68,7 +68,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           </Button>
           <Button 
             variant="outline"
-            onClick={() => navigate(`/product/${product.id}`)}
+            onClick={() => navigate(`/product/${product.handle}`)}
             className="w-full bg-white/90 backdrop-blur-sm"
             size="sm"
           >
@@ -83,7 +83,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         <div className="mb-3">
           <h3 
             className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors cursor-pointer"
-            onClick={() => navigate(`/product/${product.id}`)}
+            onClick={() => navigate(`/product/${product.handle}`)}
           >
             {product.name}
           </h3>

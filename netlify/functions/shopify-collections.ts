@@ -12,7 +12,7 @@ const handler: Handler = async (event) => {
       };
     }
 
-    const url = `https://${domain}/admin/api/2024-01/collections.json?limit=250`;
+    const url = `https://${domain}/admin/api/2024-01/custom_collections.json?limit=250`;
     const res = await fetch(url, {
       headers: {
         'Content-Type': 'application/json',
@@ -26,9 +26,15 @@ const handler: Handler = async (event) => {
     }
 
     const data = await res.json();
+    
+    // Transform custom_collections to match expected collections format
+    const transformedData = {
+      collections: data.custom_collections || []
+    };
+    
     return {
       statusCode: 200,
-      body: JSON.stringify(data)
+      body: JSON.stringify(transformedData)
     };
   } catch (err: any) {
     return {

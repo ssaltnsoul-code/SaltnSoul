@@ -62,26 +62,53 @@ export function CollectionProvider({ children }: { children: React.ReactNode }) 
   };
 
   const getFallbackProducts = (sectionId: string): Product[] => {
+    console.log(`Getting fallback products for section: ${sectionId}`, { 
+      totalProducts: allProducts.length,
+      productNames: allProducts.map(p => p.name)
+    });
+
+    // If we have no products, return empty
+    if (allProducts.length === 0) {
+      return [];
+    }
+
     switch (sectionId) {
       case 'hero':
       case 'featured':
-        return allProducts.filter(p => p.featured).slice(0, 4);
+        // Show featured products, or all products if none marked as featured
+        const featured = allProducts.filter(p => p.featured);
+        return featured.length > 0 ? featured.slice(0, 4) : allProducts.slice(0, 4);
+      
       case 'new-arrivals':
-        return allProducts.slice(0, 8); // Assume newer products are at the beginning
+        // Show all products (assume they're all new)
+        return allProducts.slice(0, 8);
+      
       case 'bestsellers':
-        return allProducts.filter(p => p.featured).slice(0, 8);
+        // Show all products as bestsellers for now
+        return allProducts.slice(0, 8);
+      
       case 'women-collection':
-        return allProducts.filter(p => 
+        // Filter by women's products or show products that could be for women
+        const womensProducts = allProducts.filter(p => 
           p.category.toLowerCase().includes('women') || 
-          p.name.toLowerCase().includes('women')
+          p.name.toLowerCase().includes('women') ||
+          p.category.toLowerCase().includes('sport bra') ||
+          p.category.toLowerCase().includes('tights') ||
+          p.category.toLowerCase().includes('leggings')
         );
+        return womensProducts.length > 0 ? womensProducts : allProducts.slice(0, 4);
+      
       case 'men-collection':
-        return allProducts.filter(p => 
+        // Filter by men's products or show shorts/athletic wear
+        const mensProducts = allProducts.filter(p => 
           p.category.toLowerCase().includes('men') || 
-          p.name.toLowerCase().includes('men')
+          p.name.toLowerCase().includes('men') ||
+          p.category.toLowerCase().includes('shorts')
         );
+        return mensProducts.length > 0 ? mensProducts : allProducts.slice(0, 4);
+      
       default:
-        return [];
+        return allProducts.slice(0, 8);
     }
   };
 

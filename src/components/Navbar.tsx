@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { ShoppingBag, Menu, X, Search, Heart, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +20,15 @@ export function Navbar({ cartItemCount, onCartOpen }: NavbarProps) {
     const loadCollections = async () => {
       try {
         const collectionsData = await getAllCollections();
-        setCollections(collectionsData.slice(0, 5)); // Limit to 5 main collections for nav
+        
+        // Filter to only show the 5 main collections you want
+        const targetCollections = ['featured-products', 'new-arrivals', 'best-sellers', 'womens', 'mens'];
+        const filteredCollections = collectionsData.filter(collection => 
+          targetCollections.includes(collection.handle)
+        );
+        
+        setCollections(filteredCollections);
+        console.log('Loaded navigation collections:', filteredCollections);
       } catch (error) {
         console.error('Error loading collections for nav:', error);
         // Fallback to default nav items
@@ -34,11 +43,11 @@ export function Navbar({ cartItemCount, onCartOpen }: NavbarProps) {
 
   // Default nav items as fallback
   const defaultNavItems = [
-    { name: 'New Arrivals', href: '#' },
-    { name: 'Tops', href: '#' },
-    { name: 'Bottoms', href: '#' },
-    { name: 'Sets', href: '#' },
-    { name: 'Accessories', href: '#' },
+    { name: 'Featured Products', href: '/collections/featured-products' },
+    { name: 'New Arrivals', href: '/collections/new-arrivals' },
+    { name: 'Best Sellers', href: '/collections/best-sellers' },
+    { name: "Women's", href: '/collections/womens' },
+    { name: "Men's", href: '/collections/mens' },
   ];
 
   const navItems = collections.length > 0 
@@ -54,19 +63,21 @@ export function Navbar({ cartItemCount, onCartOpen }: NavbarProps) {
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <div className="flex-shrink-0">
-            <h1 className="text-2xl font-bold text-brand">Salt & Soul</h1>
+            <Link to="/" className="text-2xl font-bold text-brand hover:text-primary transition-colors">
+              Salt & Soul
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-8">
             {navItems.map((item) => (
-              <a
+              <Link
                 key={item.name}
-                href={item.href}
+                to={item.href}
                 className="text-foreground hover:text-primary transition-colors duration-200 font-medium"
               >
                 {item.name}
-              </a>
+              </Link>
             ))}
           </div>
 
@@ -136,14 +147,14 @@ export function Navbar({ cartItemCount, onCartOpen }: NavbarProps) {
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t border-border/50">
               {navItems.map((item) => (
-                <a
+                <Link
                   key={item.name}
-                  href={item.href}
+                  to={item.href}
                   className="block px-3 py-2 text-foreground hover:text-primary transition-colors duration-200 font-medium"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   {item.name}
-                </a>
+                </Link>
               ))}
               <div className="border-t border-border/50 pt-4 mt-4">
                 <div className="flex justify-around">

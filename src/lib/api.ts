@@ -120,11 +120,35 @@ const transformShopifyProduct = (shopifyProduct: any): Product | null => {
 export const getAllProducts = async (): Promise<Product[]> => {
   try {
     console.log('Fetching products from Shopify...');
+    console.log('Shopify client config:', {
+      domain: import.meta.env.VITE_SHOPIFY_STORE_URL,
+      hasToken: !!import.meta.env.VITE_SHOPIFY_STOREFRONT_TOKEN
+    });
+    
     const shopifyProducts = await shopifyClient.product.fetchAll();
     console.log('Raw Shopify products:', shopifyProducts);
+    console.log('Product count:', shopifyProducts?.length);
     
     if (!shopifyProducts || shopifyProducts.length === 0) {
-      console.warn('No products returned from Shopify');
+      console.warn('No products returned from Shopify Storefront API');
+      
+      // Fallback: Try to get products via our Netlify function (Admin API)
+      console.log('Trying fallback via Admin API...');
+      try {
+        const response = await fetch('/.netlify/functions/shopify-products');
+        const adminData = await response.json();
+        console.log('Admin API response:', adminData);
+        
+        if (adminData.products && adminData.products.length > 0) {
+          const transformedProducts = adminData.products.map(transformShopifyProduct).filter((p): p is Product => p !== null);
+          console.log('✅ Products loaded via Admin API:', transformedProducts.length, 'products');
+          products = transformedProducts;
+          return transformedProducts;
+        }
+      } catch (adminError) {
+        console.error('Admin API fallback failed:', adminError);
+      }
+      
       return [];
     }
     
@@ -542,20 +566,68 @@ export const getAllCustomers = async () => {
 export const getAllCollections = async () => {
   try {
     console.log('🔄 Fetching collections from Shopify...');
-    const shopifyCollections = await shopifyClient.collection.fetchAllWithProducts();
-    console.log('✅ Collections loaded successfully:', shopifyCollections.length);
     
-    const transformedCollections = shopifyCollections.map((collection: any) => ({
-      id: collection.id,
-      handle: collection.handle,
-      title: collection.title,
-      description: collection.description || '',
-      image: collection.image?.src || '',
-      products: collection.products?.map(transformShopifyProduct).filter((p: Product | null) => p !== null) || []
-    }));
-    
-    collections = transformedCollections;
-    return transformedCollections;
+    // Try Storefront API first
+    try {
+      const shopifyCollections = await shopifyClient.collection.fetchAllWithProducts();
+      console.log('✅ Collections loaded via Storefront API:', shopifyCollections.length);
+      
+      const transformedCollections = shopifyCollections.map((collection: any) => ({
+        id: collection.id,
+        handle: collection.handle,
+        title: collection.title,
+        description: collection.description || '',
+        image: collection.image?.src || '',
+        products: collection.products?.map(transformShopifyProduct).filter((p: Product | null) => p !== null) || []
+      }));
+      
+      collections = transformedCollections;
+      return transformedCollections;
+    } catch (storefrontError) {
+      console.warn('Storefront API failed, trying Admin API fallback:', storefrontError);
+      
+      // Fallback to Admin API
+      const response = await fetch('/.netlify/functions/shopify-collections');
+      const data = await response.json();
+      console.log('Admin API collections response:', data);
+      
+      if (data.collections && data.collections.length > 0) {
+        // For each collection, we need to get its products
+        const collectionsWithProducts = await Promise.all(
+          data.collections.map(async (collection: any) => {
+            try {
+              const productsResponse = await fetch(`/.netlify/functions/shopify-collection-products?id=${collection.id}`);
+              const productsData = await productsResponse.json();
+              
+              return {
+                id: collection.id.toString(),
+                handle: collection.handle,
+                title: collection.title,
+                description: collection.body_html || collection.description || '',
+                image: collection.image?.src || '',
+                products: productsData.products?.map(transformShopifyProduct).filter((p: Product | null) => p !== null) || []
+              };
+            } catch (error) {
+              console.error(`Error fetching products for collection ${collection.id}:`, error);
+              return {
+                id: collection.id.toString(),
+                handle: collection.handle,
+                title: collection.title,
+                description: collection.body_html || collection.description || '',
+                image: collection.image?.src || '',
+                products: []
+              };
+            }
+          })
+        );
+        
+        console.log('✅ Collections loaded via Admin API:', collectionsWithProducts.length);
+        collections = collectionsWithProducts;
+        return collectionsWithProducts;
+      }
+      
+      return [];
+    }
   } catch (error) {
     console.error('Error fetching collections from Shopify:', error);
     return [];
@@ -565,17 +637,40 @@ export const getAllCollections = async () => {
 // Get single collection by handle
 export const getCollectionByHandle = async (handle: string) => {
   try {
-    const collection = await shopifyClient.collection.fetchByHandle(handle);
-    if (!collection) return null;
+    console.log(`🔄 Fetching collection by handle: ${handle}`);
     
-    return {
-      id: collection.id,
-      handle: collection.handle,
-      title: collection.title,
-      description: collection.description || '',
-      image: collection.image?.src || '',
-      products: collection.products?.map(transformShopifyProduct).filter((p: Product | null) => p !== null) || []
-    };
+    // Try Storefront API first
+    try {
+      const collection = await shopifyClient.collection.fetchByHandle(handle);
+      if (!collection) {
+        console.warn(`Collection ${handle} not found via Storefront API`);
+      } else {
+        console.log(`✅ Collection ${handle} loaded via Storefront API`);
+        return {
+          id: collection.id,
+          handle: collection.handle,
+          title: collection.title,
+          description: collection.description || '',
+          image: collection.image?.src || '',
+          products: collection.products?.map(transformShopifyProduct).filter((p: Product | null) => p !== null) || []
+        };
+      }
+    } catch (storefrontError) {
+      console.warn(`Storefront API failed for collection ${handle}, trying Admin API fallback:`, storefrontError);
+    }
+    
+    // Fallback: Get all collections and find the matching one
+    console.log(`Trying Admin API fallback for collection: ${handle}`);
+    const allCollections = await getAllCollections();
+    const foundCollection = allCollections.find(c => c.handle === handle);
+    
+    if (foundCollection) {
+      console.log(`✅ Collection ${handle} found via Admin API fallback`);
+      return foundCollection;
+    }
+    
+    console.warn(`❌ Collection ${handle} not found in any API`);
+    return null;
   } catch (error) {
     console.error('Error fetching collection:', error);
     return null;
